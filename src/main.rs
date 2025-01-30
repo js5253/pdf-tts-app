@@ -1,14 +1,12 @@
+use anyhow::anyhow;
 use image::{ColorType, DynamicImage, EncodableLayout, imageops};
 use pdf2image::{PDF, RenderOptionsBuilder};
 use rayon::prelude::*;
 use sherpa_rs::tts::{TtsAudio, VitsTts, VitsTtsConfig};
 use std::{
-    env,
     fmt::{Display, Error, Formatter},
-    fs::{self, DirEntry, File},
-    io::Read,
+    fs::{self}, ptr::null,
 };
-use tts_app::extract_number;
 
 use clap::Parser;
 
@@ -19,22 +17,25 @@ struct Args {
     /// PDF file to open
     #[arg(short, long)]
     input_file: String,
-    /// start TTS at a certain page
-    #[arg(long)]
-    start_page: Option<usize>,
-    /// sets a voice for the audiobook
-    #[arg(long)]
-    voice: Option<String>,
+    /// output file. if multiple, will prefix each file.
+    #[arg(short, long, default_value="idk")]
+    output_file: String,
+    /// start the narration at a certain page
+    #[arg(long, default_value_t=0)]
+    start_page: usize,
+    /// sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html
+    #[arg(long, default_value="vits-piper-en_US-libritts_r-medium")]
+    voice: String,
     /// sets the speed for the speaker
-    #[arg(long)]
-    speed: Option<f32>,
-
-    #[arg(long)]
+    #[arg(long, default_value_t=1.0)]
+    speed: f32,
+    
+    #[arg(long, default_value_t=true)]
     combine_pages: bool,
 
-    /// For voices that have multiple speakers, pass a speaker_id.
-    #[arg(short, long)]
-    speaker_id: Option<i32>,
+    /// for voices that have multiple speakers, pass a speaker_id.
+    #[arg(short, long, default_value_t=1)]
+    speaker_id: i32,
 }
 
 #[derive(Debug)]
@@ -95,9 +96,9 @@ fn main() -> Result<(), anyhow::Error> {
     let args = Args::parse();
 
     let pdf = PDF::from_file(args.input_file).unwrap();
-    let mut page_images: Vec<DynamicImage> = pdf
+    let page_images: Vec<DynamicImage> = pdf
         .render(
-            pdf2image::Pages::All,
+            pdf2image::Pages::Range(args.start_page as u32..=(pdf.page_count() - 1)),
             RenderOptionsBuilder::default().build()?,
         )?
         .iter_mut()
@@ -126,7 +127,13 @@ fn main() -> Result<(), anyhow::Error> {
     if fs::read_dir("out").is_err() {
         fs::create_dir("out").unwrap();
     }
-    let complete_pages: Vec<TtsAudio> = pages[args.start_page.unwrap_or(0)..]
+
+    let mut dir = fs::read_dir(format!("tts/{}", args.voice)).expect("No TTS Model!");
+
+    if dir.next().is_none() {
+        return Err(anyhow!("Couldn't find tts model"));
+    }
+    let complete_pages: Vec<TtsAudio> = pages
         .par_iter()
         .map(move |page| {
             let config = VitsTtsConfig {
@@ -140,14 +147,14 @@ fn main() -> Result<(), anyhow::Error> {
             let mut tts = VitsTts::new(config);
             tts.create(
                 page.contents.as_str(),
-                args.speaker_id.unwrap_or(1),
-                args.speed.unwrap_or(1.),
+                args.speaker_id,
+                args.speed,
             ).unwrap()
         }).collect();
     let sample_rate = complete_pages[0].sample_rate;
     match args.combine_pages {
         true => sherpa_rs::write_audio_file(
-            "ouo.wav",
+            format!("out/{}.wav", args.output_file).as_str(),
             &complete_pages
                 .iter()
                 .map(|item| item.samples.clone())
@@ -160,8 +167,8 @@ fn main() -> Result<(), anyhow::Error> {
         )
         .unwrap(),
         false => {
-            for page in complete_pages {
-                sherpa_rs::write_audio_file("idk.wav", &page.samples, sample_rate).unwrap();
+            for (i, page) in complete_pages.iter().enumerate() {
+                sherpa_rs::write_audio_file(format!("out/{}{}.wav", args.output_file, i).as_str(), &page.samples, sample_rate).unwrap();
             }
         }
     }
