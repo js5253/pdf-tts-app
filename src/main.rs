@@ -1,4 +1,5 @@
 use anyhow::anyhow;
+use glam::UVec2;
 use image::{ColorType, DynamicImage, EncodableLayout, imageops};
 use pdf2image::{PDF, RenderOptionsBuilder};
 use rayon::prelude::*;
@@ -9,6 +10,7 @@ use std::{
 };
 
 use clap::Parser;
+
 
 /// Program that allows you to use TTS from OCRed PDFs
 #[derive(Parser, Debug)]
@@ -49,19 +51,17 @@ impl Display for Page {
     }
 }
 
-fn ocr_region(dims: (usize, usize), coords: (usize, usize), image: &DynamicImage) -> String {
-    let image_width: usize = image.width() as usize;
-    let image_height: usize = image.height() as usize;
+fn ocr_region(dims: UVec2, coords: UVec2, image: &DynamicImage) -> String {
+    let image_width: u32 = image.width();
+    let image_height: u32 = image.height();
     assert!(image.color() == ColorType::L8);
-    let stride_pixel: usize = 1;
-    let stride_line: usize = image_width * stride_pixel;
-    let width = dims.0;
-    let height = dims.1;
-    let x = coords.0;
-    let y = coords.1;
-    let byte_offset: usize = (y * stride_line + x * stride_pixel) as usize;
-    assert!(x + width <= image_width);
-    assert!(y + height <= image_height);
+    let stride_pixel: u32 = 1;
+    let stride_line: u32 = image_width * stride_pixel;
+    let width = dims.x;
+    let height = dims.y;
+    let byte_offset: usize = (coords.y * stride_line + coords.x * stride_pixel) as usize;
+    assert!(coords.x + width <= image_width);
+    assert!(coords.y + height <= image_height);
     let text = tesseract::ocr_from_frame(
         &image.as_bytes()[byte_offset..],
         width as i32,
@@ -77,17 +77,16 @@ fn ocr_region(dims: (usize, usize), coords: (usize, usize), image: &DynamicImage
 fn text_from_image(image: &DynamicImage) -> (String, String) {
     // size 1166 1809
     //
-    let image_width: usize = image.width() as usize;
-    let image_height: usize = image.height() as usize;
-    let dims: (usize, usize) = (1166 * image_width / 3099, 1809 * image_height / 2379); //TODO
-    let left_coords: (usize, usize) = (374 * image_width / 3099, 193 * image_height / 2379); //TODO
-    let right_coords: (usize, usize) = (1808 * image_width / 3099, 196 * image_height / 2379); //TODO
+    let image_width: u32 = image.width();
+    let image_height: u32 = image.height();
+    let dims=UVec2::from_array([1166 * image_width / 3099, 1809 * image_height / 2379]); //TODO
+    let left_coords=UVec2::from_array([374 * image_width / 3099, 193 * image_height / 2379]); //TODO
+let right_coords=UVec2::from_array([1808 * image_width / 3099, 196 * image_height / 2379]); //TODO
 
     let mut left_text = post_process_text(&ocr_region(dims, left_coords, &image));
     let mut right_text = post_process_text(&ocr_region(dims, right_coords, &image));
     (left_text, right_text)
 }
-///FIXME: THIS FUNCTION IS SHIT
 fn post_process_text(string: &String) -> String {
     string.replace("-\n", "").replace("\n", " ")
 }
