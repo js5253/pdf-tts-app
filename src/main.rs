@@ -1,7 +1,7 @@
-use image::{ColorType, DynamicImage, imageops};
+use image::{ColorType, DynamicImage, EncodableLayout, imageops};
 use pdf2image::{PDF, RenderOptionsBuilder};
 use rayon::prelude::*;
-use sherpa_rs::tts::{VitsTts, VitsTtsConfig};
+use sherpa_rs::tts::{TtsAudio, VitsTts, VitsTtsConfig};
 use std::{
     env,
     fmt::{Display, Error, Formatter},
@@ -21,13 +21,20 @@ struct Args {
     input_file: String,
     /// start TTS at a certain page
     #[arg(long)]
-    start_page: Option<u32>,
+    start_page: Option<usize>,
     /// sets a voice for the audiobook
     #[arg(long)]
     voice: Option<String>,
     /// sets the speed for the speaker
     #[arg(long)]
     speed: Option<f32>,
+
+    #[arg(long)]
+    combine_pages: bool,
+
+    /// For voices that have multiple speakers, pass a speaker_id.
+    #[arg(short, long)]
+    speaker_id: Option<i32>,
 }
 
 #[derive(Debug)]
@@ -116,28 +123,47 @@ fn main() -> Result<(), anyhow::Error> {
         .collect();
     pages.sort_by_key(|item| item.index);
 
-    let config = VitsTtsConfig {
-        model: "./tts/vits-piper-en_US-libritts_r-medium/en_US-libritts_r-medium.onnx".into(),
-        data_dir: "./tts/vits-piper-en_US-libritts_r-medium/espeak-ng-data".into(),
-        tokens: "./tts/vits-piper-en_US-libritts_r-medium/tokens.txt".into(),
-        length_scale: 1.0,
-        ..Default::default()
-    };
-    let mut tts = VitsTts::new(config);
-    let sid = 0;
-    fs::create_dir("out").unwrap();
-    for page_index in args.start_page.unwrap_or(0)..=(pages.len() - 1) as u32 {
-        let page = &pages.get(page_index as usize).unwrap().contents;
-        let audio = tts
-            .create(page.as_str(), sid, args.speed.unwrap_or(1.0))
-            .unwrap();
-        sherpa_rs::write_audio_file(
-            format!("out/audio{}.wav", page_index).as_str(),
-            &audio.samples,
-            audio.sample_rate,
+    if fs::read_dir("out").is_err() {
+        fs::create_dir("out").unwrap();
+    }
+    let complete_pages: Vec<TtsAudio> = pages[args.start_page.unwrap_or(0)..]
+        .par_iter()
+        .map(move |page| {
+            let config = VitsTtsConfig {
+                model: "./tts/vits-piper-en_US-libritts_r-medium/en_US-libritts_r-medium.onnx"
+                    .into(),
+                data_dir: "./tts/vits-piper-en_US-libritts_r-medium/espeak-ng-data".into(),
+                tokens: "./tts/vits-piper-en_US-libritts_r-medium/tokens.txt".into(),
+                length_scale: 1.0,
+                ..Default::default()
+            };
+            let mut tts = VitsTts::new(config);
+            tts.create(
+                page.contents.as_str(),
+                args.speaker_id.unwrap_or(1),
+                args.speed.unwrap_or(1.),
+            ).unwrap()
+        }).collect();
+    let sample_rate = complete_pages[0].sample_rate;
+    match args.combine_pages {
+        true => sherpa_rs::write_audio_file(
+            "ouo.wav",
+            &complete_pages
+                .iter()
+                .map(|item| item.samples.clone())
+                .reduce(|mut acc, page| {
+                    acc.extend(page);
+                    acc
+                })
+                .unwrap(),
+            sample_rate,
         )
-        .unwrap();
-        println!("Created audio.wav");
+        .unwrap(),
+        false => {
+            for page in complete_pages {
+                sherpa_rs::write_audio_file("idk.wav", &page.samples, sample_rate).unwrap();
+            }
+        }
     }
     Ok(())
 }
