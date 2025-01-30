@@ -52,20 +52,16 @@ impl Display for Page {
 }
 
 fn ocr_region(dims: UVec2, coords: UVec2, image: &DynamicImage) -> String {
-    let image_width: u32 = image.width();
-    let image_height: u32 = image.height();
+    let image_dims=UVec2::from_array([image.width(),image.height()]);
     assert!(image.color() == ColorType::L8);
     let stride_pixel: u32 = 1;
-    let stride_line: u32 = image_width * stride_pixel;
-    let width = dims.x;
-    let height = dims.y;
+    let stride_line: u32 = image_dims.x * stride_pixel;
     let byte_offset: usize = (coords.y * stride_line + coords.x * stride_pixel) as usize;
-    assert!(coords.x + width <= image_width);
-    assert!(coords.y + height <= image_height);
+assert!(UVec2::cmple(coords + dims,image_dims).all());
     let text = tesseract::ocr_from_frame(
         &image.as_bytes()[byte_offset..],
-        width as i32,
-        height as i32,
+        dims.x as i32,
+        dims.y as i32,
         stride_pixel as i32,
         stride_line as i32,
         "eng",
@@ -75,13 +71,11 @@ fn ocr_region(dims: UVec2, coords: UVec2, image: &DynamicImage) -> String {
 }
 
 fn text_from_image(image: &DynamicImage) -> (String, String) {
-    // size 1166 1809
-    //
-    let image_width: u32 = image.width();
-    let image_height: u32 = image.height();
-    let dims=UVec2::from_array([1166 * image_width / 3099, 1809 * image_height / 2379]); //TODO
-    let left_coords=UVec2::from_array([374 * image_width / 3099, 193 * image_height / 2379]); //TODO
-let right_coords=UVec2::from_array([1808 * image_width / 3099, 196 * image_height / 2379]); //TODO
+    let image_dims=UVec2::from_array([image.width(),image.height()]);
+    let old_dims=UVec2::from_array([3099, 2379]);
+    let dims=UVec2::from_array([1166, 1809])*image_dims/old_dims; //TODO
+    let left_coords=UVec2::from_array([374, 193])*image_dims/old_dims; //TODO
+    let right_coords=UVec2::from_array([1808, 196])*image_dims/old_dims; //TODO
 
     let mut left_text = post_process_text(&ocr_region(dims, left_coords, &image));
     let mut right_text = post_process_text(&ocr_region(dims, right_coords, &image));
