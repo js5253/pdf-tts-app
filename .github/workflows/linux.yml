@@ -30,9 +30,10 @@ jobs:
           libleptonica-dev \
           libtesseract-dev \
           libglib2.0-dev \
-          libgtk-3-dev
+          libgtk-3-dev \
+          libsoup-3.0-0
       - name: Install yarn dependencies
-        run: yarn
+        run: yarn --frozen-lockfile
       - name: Build (Linux)
         run: yarn tauri build
     #   - name: Run tests
