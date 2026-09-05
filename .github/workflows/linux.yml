@@ -31,7 +31,8 @@ jobs:
           libtesseract-dev \
           libglib2.0-dev \
           libgtk-3-dev \
-          libsoup-3.0-dev
+          libsoup-3.0-dev \
+          libjavascriptcoregtk-4.1-dev
       - name: Install yarn dependencies
         run: yarn --frozen-lockfile
       - name: Build (Linux)
