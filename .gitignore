@@ -1,6 +1,2 @@
-/target
-/input
-*.pdf
-*.png
-/tts
-/out
+node_modules
+dist
