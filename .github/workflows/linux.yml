@@ -10,7 +10,7 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Checkout Git Repo
@@ -22,7 +22,7 @@ jobs:
       - name: Update packages
         run: sudo apt update
 
-      - name: Install desktop (FLTK+tray_icon) dependency
+      - name: Install TTS dependencies (onnxruntime +)
         run: |
           sudo apt-get install -y \
           libonnxruntime-dev \
