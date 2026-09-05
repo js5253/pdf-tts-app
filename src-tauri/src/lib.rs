@@ -3,8 +3,9 @@
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
 }
+use serde::{Serialize, Deserialize};
 
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use glam::UVec2;
 use image::{ColorType, DynamicImage, EncodableLayout, GrayImage, imageops};
 use pdf2image::{PDF, RenderOptionsBuilder};
@@ -15,17 +16,7 @@ use std::{
     fs::{self},
 };
 
-use regex;
-
-pub fn extract_number(file_path: &str) -> Option<u32> {
-    let re = regex::Regex::new(r"\d+").unwrap();
-    if let Some(captures) = re.captures(file_path) {
-        captures.get(0).and_then(|m| m.as_str().parse::<u32>().ok())
-    } else {
-        None
-    }
-}
-
+#[derive(Serialize, Deserialize)]
 struct TtsJobConfig {
     /// PDF file to open
     input_file: String,
@@ -101,21 +92,37 @@ fn text_from_image(image: &DynamicImage) -> (String, String) {
     let left_coords = UVec2::from_array([374, 193]) * image_dims / old_dims; //TODO
     let right_coords = UVec2::from_array([1808, 196]) * image_dims / old_dims; //TODO
 
-    let mut left_text = post_process_text(&ocr_region(dims, left_coords, &image));
-    let mut right_text = post_process_text(&ocr_region(dims, right_coords, &image));
+    let left_text = post_process_text(&ocr_region(dims, left_coords, &image));
+    let right_text = post_process_text(&ocr_region(dims, right_coords, &image));
     (left_text, right_text)
 }
-fn post_process_text(string: &String) -> String {
+fn post_process_text(string: &str) -> String {
     string.replace("-\n", "").replace("\n", " ")
 }
 
-fn run_job(job: TtsJobConfig) -> Result<(), anyhow::Error> {
+
+#[derive(Debug, thiserror::Error)]
+pub enum CommandError {
+    #[error(transparent)]
+    JobFailed(#[from] anyhow::Error)
+}
+impl serde::Serialize for CommandError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}
+
+#[tauri::command]
+fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
     let pdf = PDF::from_file(&job.input_file).unwrap();
     let page_images: Vec<DynamicImage> = pdf
         .render(
             pdf2image::Pages::Range(job.start_page as u32..=(pdf.page_count() - 1)),
-            RenderOptionsBuilder::default().greyscale(true).build()?,
-        )?
+            RenderOptionsBuilder::default().greyscale(true).build().context("Could not create render options.")?,
+        ).context("Could not render a pdf into an image.")?
         .iter_mut()
         .map(|page| page.grayscale().rotate90())
         .collect();
@@ -127,7 +134,7 @@ fn run_job(job: TtsJobConfig) -> Result<(), anyhow::Error> {
             let (left_text, right_text) = text_from_image(page);
             [
                 Page {
-                    index: 2 * file_index as u32 + 0,
+                    index: 2 * file_index as u32,
                     contents: left_text,
                 },
                 Page {
@@ -143,10 +150,10 @@ fn run_job(job: TtsJobConfig) -> Result<(), anyhow::Error> {
         fs::create_dir("out").unwrap();
     }
 
-    let mut dir = fs::read_dir(format!("tts/{}", job.voice)).expect("No TTS Model!");
+    let mut dir = fs::read_dir(format!("tts/{}", job.voice)).context("No TTS Model")?;
 
     if dir.next().is_none() {
-        return Err(anyhow!("Couldn't find tts model"));
+        return Err(anyhow!("ASAAS").into());
     }
     let config = OfflineTtsConfig {
         model: sherpa_onnx::OfflineTtsModelConfig {
@@ -178,7 +185,7 @@ fn run_job(job: TtsJobConfig) -> Result<(), anyhow::Error> {
     };
     let audio = tts
         .generate_with_config(
-            &text,
+            text,
             &gen_config,
             Some(|_samples: &[f32], progress: f32| -> bool {
                 println!("Progress: {:.1}%", progress * 100.0);
@@ -206,6 +213,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
+        .invoke_handler(tauri::generate_handler![run_job])
         .invoke_handler(tauri::generate_handler![greet])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

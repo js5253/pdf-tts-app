@@ -1,0 +1,62 @@
+import { invoke } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { open } from '@tauri-apps/plugin-dialog';
+import { createSignal, onMount } from "solid-js"
+
+
+
+const Home = () => {
+    const [isHovering, setIsHovering] = createSignal(false);
+    const [ttsConfig, setTtsConfig] = createSignal(); ///TODO
+    const [currentFilePath, setCurrentFilePath] = createSignal<string | null>(null);
+    onMount(async () => {
+        const appWindow = getCurrentWindow();
+        await appWindow.onDragDropEvent((event) => {
+            if (event.payload.type == 'over') {
+                setIsHovering(true);
+            } else if (event.payload.type === 'drop') {
+                setIsHovering(false);
+                setCurrentFilePath(event.payload.paths[0]);
+                // console.log('dropped:', event.payload.paths);
+            } else if (event.payload.type === 'leave') {
+                setIsHovering(false);
+            }
+        });
+
+    })
+    function clearFile() {
+        setCurrentFilePath(null)
+    }
+    async function greet() {
+        // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+        const file = await open({
+            multiple: false,
+            directory: false,
+        });
+        setCurrentFilePath(file);
+    }
+    async function createTTS() {
+        if (!ttsConfig) return;
+        await invoke('run_job', { 
+            // here, add the config 
+         });
+    }
+
+        return <>{currentFilePath() ? <>
+            <p>Selected File: {currentFilePath()}</p>
+            <div class="flex flex-row gap-4">
+            <button class='border border-green-700 p-2' on:click={() => clearFile()}>Back</button>
+            <button class='border border-green-700 p-2 bg-black text-white' on:click={() => createTTS()}>Continue</button>
+            </div>
+            <div class="backdrop-brightness-80 shadow w-[80vw] min-h-48 p-4">
+                <h2>Advanced Options</h2>
+            </div>
+        </> : <>
+            <h1 class="text-5xl">Drag your PDF</h1>
+            <p>or</p>
+            <button class="border border-green-700 p-2" on:click={() => greet().then()}>Select A File</button>
+
+        </>}
+        </>
+}
+export { Home };

@@ -1,4 +1,4 @@
-function Settings() {
+const Settings = () => {
     return(
         <div>
             <h1>Default Options</h1>
@@ -15,3 +15,4 @@ function Settings() {
         </div>
     )
 }
+export { Settings }

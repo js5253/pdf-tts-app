@@ -3233,6 +3233,7 @@ dependencies = [
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
  "tesseract",
+ "thiserror 2.0.20",
 ]
 
 [[package]]

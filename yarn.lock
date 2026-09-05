@@ -308,6 +308,11 @@
   resolved "https://registry.yarnpkg.com/@rolldown/pluginutils/-/pluginutils-1.0.1.tgz#e3fcee093fbb5ce765e1ad088ff4de2889f6f9be"
   integrity sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==
 
+"@solidjs/router@^1.0.0":
+  version "1.0.0"
+  resolved "https://registry.yarnpkg.com/@solidjs/router/-/router-1.0.0.tgz#9e4e5d6dbdeb725e8e4a9b5a3c7158c39fff096f"
+  integrity sha512-cCSk1hvgCowiMa9bzzYWHiLu1U4E22+DfJe6/rOwAyECKrxc3jrd5QnoW3sDDJtW+e077cz/M67bPl3DqOBw1Q==
+
 "@tailwindcss/node@4.3.3":
   version "4.3.3"
   resolved "https://registry.yarnpkg.com/@tailwindcss/node/-/node-4.3.3.tgz#38ff04309ff036ea3589a7bad9069c44ec9d3883"
