@@ -2,11 +2,10 @@ name: Build (Linux)
 
 on:
   push:
-    branches: ["main"]
+    branches: ["neo"]
   pull_request:
-    branches: ["main"]
+    branches: ["neo"]
 env:
-  DISCORD_ID: ${{vars.DISCORD_ID}}
   CARGO_TERM_COLOR: always
 
 jobs:

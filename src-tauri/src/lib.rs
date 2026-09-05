@@ -26,9 +26,6 @@ pub fn extract_number(file_path: &str) -> Option<u32> {
     }
 }
 
-// /// Program that allows you to use TTS from OCRed PDFs
-// #[derive(Parser, Debug)]
-// #[command(version, about, long_about = None)]
 struct TtsJobConfig {
     /// PDF file to open
     input_file: String,
@@ -49,6 +46,10 @@ struct TtsJobConfig {
     /// for voices that have multiple speakers, pass a speaker_id.
     // #[arg(short, long, default_value_t = 1)]
     speaker_id: i32,
+
+    // end TTS config here
+
+
 }
 
 #[derive(Debug)]
@@ -108,11 +109,11 @@ fn post_process_text(string: &String) -> String {
     string.replace("-\n", "").replace("\n", " ")
 }
 
-fn main(settings: TtsJobConfig) -> Result<(), anyhow::Error> {
-    let pdf = PDF::from_file("ASSAAS".to_string()).unwrap();
+fn run_job(job: TtsJobConfig) -> Result<(), anyhow::Error> {
+    let pdf = PDF::from_file(&job.input_file).unwrap();
     let page_images: Vec<DynamicImage> = pdf
         .render(
-            pdf2image::Pages::Range(args.start_page as u32..=(pdf.page_count() - 1)),
+            pdf2image::Pages::Range(job.start_page as u32..=(pdf.page_count() - 1)),
             RenderOptionsBuilder::default().greyscale(true).build()?,
         )?
         .iter_mut()
@@ -142,7 +143,7 @@ fn main(settings: TtsJobConfig) -> Result<(), anyhow::Error> {
         fs::create_dir("out").unwrap();
     }
 
-    let mut dir = fs::read_dir(format!("tts/{}", args.voice)).expect("No TTS Model!");
+    let mut dir = fs::read_dir(format!("tts/{}", job.voice)).expect("No TTS Model!");
 
     if dir.next().is_none() {
         return Err(anyhow!("Couldn't find tts model"));
@@ -160,13 +161,13 @@ fn main(settings: TtsJobConfig) -> Result<(), anyhow::Error> {
                 noise_scale: 0.667,
                 noise_scale_w: 0.8,
                 length_scale: 1.0,
-                ..default()
+                ..Default::default()
             },
             num_threads: 1,
             debug: true,
-            ..default()
+            ..Default::default()
         },
-        ..default()
+        ..Default::default()
     };
     let text = "Hello World!";
     let tts = OfflineTts::create(&config).expect("Failed to create OfflineTts");
