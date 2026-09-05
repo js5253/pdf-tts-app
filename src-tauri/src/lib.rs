@@ -6,7 +6,7 @@ use pdf2image::{RenderOptionsBuilder, PDF};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sherpa_onnx::{
-    GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsModelConfig,
+    GenerationConfig, OfflineTts, OfflineTtsConfig,
     OfflineTtsVitsModelConfig,
 };
 use std::{

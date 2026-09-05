@@ -40,20 +40,20 @@ const Home = () => {
     }
     async function createTTS() {
         console.log(ttsConfig())
-        if (!ttsConfig()) return;
-        const tc = ttsConfig();
-        await invoke('run_job', {
-            ...tc,
-            input_file: currentFilePath()
-            // here, add the config 
-        });
+        // if (!ttsConfig()) return;
+        // const tc = ttsConfig();
+        // await invoke('run_job', {
+        //     ...tc,
+        //     input_file: currentFilePath()
+        //     // here, add the config 
+        // });
     }
 
     return <>{currentFilePath() ? <>
         <p>Selected File: {currentFilePath()}</p>
         <div class="flex flex-row gap-4">
-            <button class='border border-green-700 p-2' on:click={() => clearFile()}>Back</button>
-            <button class='border border-green-700 p-2 bg-black text-white' on:click={() => createTTS().then()}>Continue</button>
+            <button class='border border-green-700 p-2' onClick={clearFile}>Back</button>
+            <button class='border border-green-700 p-2 bg-black text-white' onClick={createTTS}>Continue</button>
         </div>
         <div class="backdrop-brightness-80 shadow w-[80vw] min-h-48 p-4">
             <h2>Advanced Options</h2>
@@ -74,7 +74,7 @@ const Home = () => {
         {/* {isHovering() && <div class='absolute bg-green-400 w-40 h-40'>Drop me here!</div>} */}
         <h1 class="text-5xl">Drag your PDF</h1>
         <p>or</p>
-        <button class="border border-green-700 p-2" on:click={() => openFilePicker().then()}>Select A File</button>
+        <button class="border border-green-700 p-2" onClick={() => openFilePicker().then()}>Select A File</button>
 
     </>}
     </>
