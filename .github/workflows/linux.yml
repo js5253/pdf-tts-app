@@ -29,6 +29,8 @@ jobs:
           libstdc++6 \
           libleptonica-dev \
           libtesseract-dev \
+      - name: Install yarn dependencies
+        run: yarn
       - name: Build (Linux)
         run: yarn tauri build
     #   - name: Run tests
