@@ -29,6 +29,7 @@ jobs:
           libstdc++6 \
           libleptonica-dev \
           libtesseract-dev \
+          libglib2.0-dev
       - name: Install yarn dependencies
         run: yarn
       - name: Build (Linux)
