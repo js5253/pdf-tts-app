@@ -1,6 +1,9 @@
-import { IoSettingsOutline } from 'solid-icons/io'
+import { A, useLocation } from '@solidjs/router'
+import { IoArrowBack, IoSettingsOutline } from 'solid-icons/io'
 export const AppBar = () => {
-    return <nav class="backdrop-brightness-80 p-3 flex justify-end">
-        <button><IoSettingsOutline size={24}/></button>
+    const location = useLocation();
+    return <nav class="backdrop-brightness-80 p-3 flex justify-end items-between">
+        {location.pathname != "/" && <A href="/"><IoArrowBack size={24}/></A>}
+        <A href="/settings"><IoSettingsOutline size={24}/></A>
     </nav>
 }

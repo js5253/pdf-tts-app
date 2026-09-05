@@ -1,6 +1,6 @@
 const Settings = () => {
     return(
-        <div>
+        <div class="flex-col">
             <h1>Default Options</h1>
             <input type="checkbox" name="sameOutputDirectory" />
             <label for="sameOutputDirectory">Put the output files in the same directory as the input file.</label>

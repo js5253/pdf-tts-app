@@ -10,6 +10,9 @@ const Home = () => {
     const [ttsConfig, setTtsConfig] = createSignal(); ///TODO
     const [currentFilePath, setCurrentFilePath] = createSignal<string | null>(null);
     onMount(async () => {
+        const config = await invoke('get_config');
+        console.log(config);
+        setTtsConfig(config);
         const appWindow = getCurrentWindow();
         await appWindow.onDragDropEvent((event) => {
             if (event.payload.type == 'over') {
@@ -27,7 +30,7 @@ const Home = () => {
     function clearFile() {
         setCurrentFilePath(null)
     }
-    async function greet() {
+    async function openFilePicker() {
         // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
         const file = await open({
             multiple: false,
@@ -36,27 +39,44 @@ const Home = () => {
         setCurrentFilePath(file);
     }
     async function createTTS() {
-        if (!ttsConfig) return;
-        await invoke('run_job', { 
+        console.log(ttsConfig())
+        if (!ttsConfig()) return;
+        const tc = ttsConfig();
+        await invoke('run_job', {
+            ...tc,
+            input_file: currentFilePath()
             // here, add the config 
-         });
+        });
     }
 
-        return <>{currentFilePath() ? <>
-            <p>Selected File: {currentFilePath()}</p>
-            <div class="flex flex-row gap-4">
+    return <>{currentFilePath() ? <>
+        <p>Selected File: {currentFilePath()}</p>
+        <div class="flex flex-row gap-4">
             <button class='border border-green-700 p-2' on:click={() => clearFile()}>Back</button>
-            <button class='border border-green-700 p-2 bg-black text-white' on:click={() => createTTS()}>Continue</button>
-            </div>
-            <div class="backdrop-brightness-80 shadow w-[80vw] min-h-48 p-4">
-                <h2>Advanced Options</h2>
-            </div>
-        </> : <>
-            <h1 class="text-5xl">Drag your PDF</h1>
-            <p>or</p>
-            <button class="border border-green-700 p-2" on:click={() => greet().then()}>Select A File</button>
+            <button class='border border-green-700 p-2 bg-black text-white' on:click={() => createTTS().then()}>Continue</button>
+        </div>
+        <div class="backdrop-brightness-80 shadow w-[80vw] min-h-48 p-4">
+            <h2>Advanced Options</h2>
+            <form>
+                <input type="checkbox" name='outputDir' />
+                <label for="outputDir">Output Directory</label>
+                <input type="text" name='voice' />
+                <label for="voice">Voice</label>
 
-        </>}
-        </>
+                <input type="number" name='speed' />
+                <label for="speed">Combine pages into one audio file</label>
+                <input type="checkbox" name='outputDir' />
+                <label for="outputDir">Output Directory</label>
+
+            </form>
+        </div>
+    </> : <>
+        {/* {isHovering() && <div class='absolute bg-green-400 w-40 h-40'>Drop me here!</div>} */}
+        <h1 class="text-5xl">Drag your PDF</h1>
+        <p>or</p>
+        <button class="border border-green-700 p-2" on:click={() => openFilePicker().then()}>Select A File</button>
+
+    </>}
+    </>
 }
 export { Home };

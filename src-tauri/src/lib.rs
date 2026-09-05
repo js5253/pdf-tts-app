@@ -1,16 +1,14 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-use serde::{Serialize, Deserialize};
-
-use anyhow::{Context, anyhow};
+use anyhow::{anyhow, Context};
 use glam::UVec2;
-use image::{ColorType, DynamicImage, EncodableLayout, GrayImage, imageops};
-use pdf2image::{PDF, RenderOptionsBuilder};
+use image::{imageops, ColorType, DynamicImage, EncodableLayout, GrayImage};
+use pdf2image::{RenderOptionsBuilder, PDF};
 use rayon::prelude::*;
-use sherpa_onnx::{OfflineTts, GenerationConfig, OfflineTtsVitsModelConfig, OfflineTtsConfig, OfflineTtsModelConfig};
+use serde::{Deserialize, Serialize};
+use sherpa_onnx::{
+    GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsModelConfig,
+    OfflineTtsVitsModelConfig,
+};
 use std::{
     fmt::{Display, Error, Formatter},
     fs::{self},
@@ -21,7 +19,7 @@ struct TtsJobConfig {
     /// PDF file to open
     input_file: String,
     /// output file. if multiple, will prefix each file.
-    output_file: String,
+    output_prefix: String,
     /// start the narration at a certain page
     start_page: usize,
     /// sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html
@@ -37,10 +35,39 @@ struct TtsJobConfig {
     /// for voices that have multiple speakers, pass a speaker_id.
     // #[arg(short, long, default_value_t = 1)]
     speaker_id: i32,
-
     // end TTS config here
+}
+#[derive(Serialize, Deserialize)]
+struct TtsAppConfig {
+    /// start the narration at a certain page
+    start_page: usize,
+    output_prefix: String,
+    /// sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html
+    // #[arg(long, default_value = "vits-piper-en_US-libritts_r-medium")]
+    voice: String,
+    /// sets the speed for the speaker
+    // #[arg(long, default_value_t = 1.0)]
+    speed: f32,
 
+    // #[arg(long, default_value_t = true)]
+    combine_pages: bool,
 
+    /// for voices that have multiple speakers, pass a speaker_id.
+    // #[arg(short, long, default_value_t = 1)]
+    speaker_id: i32,
+    // end TTS config here
+}
+impl Default for TtsAppConfig {
+    fn default() -> Self {
+        TtsAppConfig {
+            start_page: 0,
+            voice: String::from("vits-piper-en_US-libritts_r-medium"),
+            speed: 1.0,
+            combine_pages: true,
+            speaker_id: 1,
+            output_prefix: String::from("page_")
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -100,16 +127,15 @@ fn post_process_text(string: &str) -> String {
     string.replace("-\n", "").replace("\n", " ")
 }
 
-
 #[derive(Debug, thiserror::Error)]
 pub enum CommandError {
     #[error(transparent)]
-    JobFailed(#[from] anyhow::Error)
+    JobFailed(#[from] anyhow::Error),
 }
 impl serde::Serialize for CommandError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
-        S: serde::Serializer
+        S: serde::Serializer,
     {
         serializer.serialize_str(&self.to_string())
     }
@@ -117,12 +143,17 @@ impl serde::Serialize for CommandError {
 
 #[tauri::command]
 fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
+    println!("run_job");
     let pdf = PDF::from_file(&job.input_file).unwrap();
     let page_images: Vec<DynamicImage> = pdf
         .render(
             pdf2image::Pages::Range(job.start_page as u32..=(pdf.page_count() - 1)),
-            RenderOptionsBuilder::default().greyscale(true).build().context("Could not create render options.")?,
-        ).context("Could not render a pdf into an image.")?
+            RenderOptionsBuilder::default()
+                .greyscale(true)
+                .build()
+                .context("Could not create render options.")?,
+        )
+        .context("Could not render a pdf into an image.")?
         .iter_mut()
         .map(|page| page.grayscale().rotate90())
         .collect();
@@ -158,13 +189,9 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
     let config = OfflineTtsConfig {
         model: sherpa_onnx::OfflineTtsModelConfig {
             vits: OfflineTtsVitsModelConfig {
-                model: Some(
-                    "./tts/vits-piper-en_US-libritts_r-medium/en_US-libritts_r-medium.onnx".to_string()
-                ),
-                tokens: Some(
-                    "./tts/vits-piper-en_US-libritts_r-medium/en_US-libritts_r-medium.onnx".to_string(),
-                ),
-                data_dir: Some("./tts/vits-piper-en_US-libritts_r-medium/espeak-ng-data".to_string()),
+                model: Some(format!("./tts/{}/en_US-libritts_r-medium.onnx", job.voice)),
+                tokens: Some(format!("./tts/{}/en_US-libritts_r-medium.onnx", job.voice)),
+                data_dir: Some(format!("./tts/{}/espeak-ng-data", job.voice)),
                 noise_scale: 0.667,
                 noise_scale_w: 0.8,
                 length_scale: 1.0,
@@ -194,7 +221,7 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
         )
         .expect("Generation failed");
 
-     // new code:
+    // new code:
     //      if audio.save(&args.output) {
     //     println!("Saved to: {}", args.output);
     // } else {
@@ -207,6 +234,18 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
     // }
     Ok(())
 }
+#[tauri::command]
+fn get_config() -> TtsAppConfig {
+    println!("GET CONFIG");
+    if fs::exists("config.toml").unwrap() {
+        let config = fs::read_to_string("config.toml").unwrap();
+        let config: TtsAppConfig = toml::from_str(config.as_str()).unwrap();
+
+        config
+    } else {
+        TtsAppConfig::default()
+    }
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -214,7 +253,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![run_job])
-        .invoke_handler(tauri::generate_handler![greet])
+        .invoke_handler(tauri::generate_handler![get_config])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
