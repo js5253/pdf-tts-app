@@ -10,7 +10,9 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
 use std::{
-    env::current_dir, fmt::{Display, Error, Formatter}, fs::{self}, path::{Path, PathBuf}, sync::Arc, thread::current,
+    fmt::{Display, Error, Formatter},
+    fs::{self},
+    path::{Path},
 };
 
 use tauri::AppHandle;
@@ -217,25 +219,32 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
     let current_path = binding
         .parent()
         .ok_or(anyhow!("Error finding TTS Model path"))?;
+    let current_path = &current_path.join(&job.voice);
     // let current_path = Path::new();
-    let mut dir = fs::read_dir(current_path.join(&job.voice)).context("No TTS Model")?;
+    let mut dir = fs::read_dir(current_path).context("No TTS Model")?;
 
     if dir.next().is_none() {
         return Err(anyhow!("ASAAS").into());
     }
+    let mut token_path = current_path.clone();
+    token_path.push("/en_US-libritts_r-medium.onnx");
+
+    let mut data_dir = token_path.clone();
+    data_dir.push("/espeak-ng-data");
+    dbg!(token_path.clone(), data_dir.clone());
     // TODO: FIX THIS TO USE ACTUAL GOOD PATHS.
     let config = OfflineTtsConfig {
         model: sherpa_onnx::OfflineTtsModelConfig {
             vits: OfflineTtsVitsModelConfig {
-                model: Some(format!("./tts/{}/en_US-libritts_r-medium.onnx", job.voice)),
-                tokens: Some(format!("./tts/{}/en_US-libritts_r-medium.onnx", job.voice)),
-                data_dir: Some(format!("./tts/{}/espeak-ng-data", job.voice)),
+                model: Some(token_path.clone().into_os_string().into_string().unwrap()),
+                tokens: Some(token_path.into_os_string().into_string().unwrap()),
+                data_dir: Some(data_dir.into_os_string().into_string().unwrap()),
                 noise_scale: 0.667,
                 noise_scale_w: 0.8,
                 length_scale: 1.0,
                 ..Default::default()
             },
-            num_threads: 1,
+            num_threads: 8,
             debug: true,
             ..Default::default()
         },
@@ -266,15 +275,26 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
     Ok(())
 }
 #[tauri::command]
-async fn get_config(state: tauri::State<'_, AppState>) -> TtsAppConfig {
+async fn get_config(state: tauri::State<'_, AppState>) -> Result<TtsAppConfig, ()> {
     // TODO: figure out best practice for returning data based on mutex
     let config: TtsAppConfig = {
-    let config = state.settings.lock().await;
+        let config = state.settings.lock().await;
         config.clone()
     };
+    Ok(config)
+}
+#[tauri::command]
+fn get_downloaded_models() -> Result<Vec<String>, CommandError> {
+    let mut models: Vec<String> = Vec::new();
+    let binding = std::env::current_dir().context("Error finding TTS Model path")?;
+    let model_path = binding
+        .parent()
+        .ok_or(anyhow!("Couldn't build TTS Model path"))?;
 
-    config
+    let dir = fs::read_dir(model_path.join("tts")).context("No TTS Model")?;
+    dir.for_each(|item| models.push(item.unwrap().path().to_string_lossy().to_string()));
 
+    Ok(models)
 }
 fn setup(app: &AppHandle) {
     // app.
@@ -291,7 +311,11 @@ pub fn run() {
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![get_config, run_job])
+        .invoke_handler(tauri::generate_handler![
+            get_config,
+            get_downloaded_models,
+            run_job
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

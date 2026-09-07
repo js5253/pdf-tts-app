@@ -10,7 +10,7 @@ const Layout = (props) => {
         <>
             <AppBar />
 
-            <div class="border border-8 border-green-400 grow flex flex-col gap-4 items-center justify-center p-8">
+            <div class="grow flex flex-col gap-4 items-center justify-center p-8">
                 {props.children}
             </div>
 

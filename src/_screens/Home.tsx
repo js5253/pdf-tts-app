@@ -73,13 +73,13 @@ const Home = () => {
 
             </form>
         </div>
-    </> : <>
+    </> : <div class='flex flex-col items-center outline outline-green-300 outline-10 outline-dashed outline-offset-[100px]'>
         {/* {isHovering() && <div class='absolute bg-green-400 w-40 h-40'>Drop me here!</div>} */}
         <h1 class="text-5xl">Drag your PDF</h1>
         <p>or</p>
         <button class="border border-green-700 p-2" onClick={() => openFilePicker().then()}>Select A File</button>
 
-    </>}
+    </div>}
     </>
 }
 export { Home };
