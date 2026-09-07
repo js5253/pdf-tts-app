@@ -1,8 +1,7 @@
 import { A, useLocation } from '@solidjs/router'
 import { IoArrowBack, IoSettingsOutline } from 'solid-icons/io'
 export const Button = ({children, onClick, className}) => {
-    const location = useLocation();
-    return <button class={className} onClick={onClick}>
+    return <button class="p-2 bg-green-400 shadow rounded"  onClick={onClick}>
         {children}
     </button>
 }

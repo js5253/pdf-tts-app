@@ -2,10 +2,11 @@ import { invoke } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
 import { createSignal, onMount } from "solid-js"
-
+import { useNavigate } from "@solidjs/router";
 
 
 const Home = () => {
+    const navigate = useNavigate();
     const [isHovering, setIsHovering] = createSignal(false);
     const [ttsConfig, setTtsConfig] = createSignal(); ///TODO
     const [currentFilePath, setCurrentFilePath] = createSignal<string | null>(null);
@@ -42,14 +43,19 @@ const Home = () => {
         console.log(ttsConfig())
         if (!ttsConfig()) return;
         const tc = ttsConfig();
-        await invoke('run_job', {
+        try {
+            const result = await invoke('run_job', {
             job: {
                 ...tc,
                 input_file: currentFilePath(),
-                use_ocr: true
+                use_ocr: false
             }
             // here, add the config 
-        });
+        }); 
+        navigate("/done")
+        } catch(e) {
+            console.log(e)
+        }
     }
 
     return <>{currentFilePath() ? <>

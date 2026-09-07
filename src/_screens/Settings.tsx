@@ -34,10 +34,10 @@ const Settings = () => {
             <div class="flex flex-col gap-2">
                 <h2 class="text-xl">TTS Voice Manager</h2>
                 <p>Currently, downloading TTS voices is not available in-app. Manually download models, unzip them, and place them into the app's location/tts folder.</p>
-                <div class="gap-4 flex flex-row">
+                <div class="gap-2 flex flex-row">
                     <Button className="p-2 bg-blue-400" onClick={() => { openUrl('https://github.com/k2-fsa/sherpa-onnx').then() }}>Open Sherpa-ONNX models</Button>
                     <Button className="p-2 bg-blue-400" onClick={() => openUrl(dataDir())}>Open Directory</Button>
-                    <Button className="p-2 bg-blue-400" onClick={reloadTtsModels}>Reload TTS Models</Button>
+                    <Button onClick={reloadTtsModels}>Reload TTS Models</Button>
                 </div>
                 <ul>
                     {downloadedTtsModels()?.map(model => (
