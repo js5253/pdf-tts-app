@@ -9,9 +9,19 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
 use std::{
-    env::current_dir, fmt::{Display, Error, Formatter}, fs::{self}, path::Path, sync::Arc, thread::current,
+    env::current_dir,
+    fmt::{Display, Error, Formatter},
+    fs::{self},
+    path::Path,
+    sync::Arc,
+    thread::current,
 };
+use tauri::AppHandle;
 use tokio::sync::Mutex;
+
+struct AppState {
+    settings: Mutex<TtsAppConfig>,
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 struct TtsJobConfig {
@@ -56,15 +66,22 @@ struct TtsAppConfig {
     speaker_id: i32,
     // end TTS config here
 }
-impl Default for TtsAppConfig {
-    fn default() -> Self {
-        TtsAppConfig {
-            start_page: 0,
-            voice: String::from("vits-piper-en_US-libritts_r-medium"),
-            speed: 1.0,
-            combine_pages: true,
-            speaker_id: 1,
-            output_prefix: String::from("page_"),
+impl TtsAppConfig {
+    fn load_or_default() -> Self {
+        if fs::exists("config.toml").unwrap() {
+            let config = fs::read_to_string("config.toml").unwrap();
+            let config: TtsAppConfig = toml::from_str(config.as_str()).unwrap();
+
+            config
+        } else {
+            TtsAppConfig {
+                start_page: 0,
+                voice: String::from("vits-piper-en_US-libritts_r-medium"),
+                speed: 1.0,
+                combine_pages: true,
+                speaker_id: 1,
+                output_prefix: String::from("page_"),
+            }
         }
     }
 }
@@ -156,7 +173,7 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
             p
         }
         false => {
-            let pdf = PDF::from_file(&job.input_file).unwrap();
+            let pdf = PDF::from_file(&job.input_file).context("Could not read PDF file")?;
             let page_images: Vec<DynamicImage> = pdf
                 .render(
                     pdf2image::Pages::Range(job.start_page as u32..=(pdf.page_count() - 1)),
@@ -192,11 +209,13 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
     p.sort_by_key(|item| item.index);
 
     if fs::read_dir("out").is_err() {
-        fs::create_dir("out").unwrap();
+        fs::create_dir("out").context("Failed to create output directory")?;
     }
     println!("{:?}", p);
     let binding = std::env::current_dir().context("Error finding TTS Model path")?;
-    let current_path = binding.parent().ok_or(anyhow!("Error finding TTS Model path"))?;
+    let current_path = binding
+        .parent()
+        .ok_or(anyhow!("Error finding TTS Model path"))?;
     // let current_path = Path::new();
     let mut dir = fs::read_dir(current_path.join(&job.voice)).context("No TTS Model")?;
 
@@ -243,35 +262,26 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
     let saved = audio.save("file.wav");
     println!("Saved: {saved}");
 
-    // new code:
-    //      if audio.save(&args.output) {
-    //     println!("Saved to: {}", args.output);
-    // } else {
-    //     eprintln!("Failed to save {}", args.output);
-    // }
-    // let sample_rate = complete_pages[0].sample_rate;
-    // match args.combine_pages {
-    //     true => do something
-    //     }
-    // }
     Ok(())
 }
 #[tauri::command]
-fn get_config() -> TtsAppConfig {
-    println!("GET CONFIG");
-    if fs::exists("config.toml").unwrap() {
-        let config = fs::read_to_string("config.toml").unwrap();
-        let config: TtsAppConfig = toml::from_str(config.as_str()).unwrap();
-
-        config
-    } else {
-        TtsAppConfig::default()
-    }
+fn get_config(state: tauri::State<'_, AppState>) -> TtsAppConfig {
+    // state.settings.lock().await
+    TtsAppConfig::load_or_default()
 }
-
+fn setup(app: &AppHandle) {
+    // app.
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(AppState {
+            settings: Mutex::new(TtsAppConfig::load_or_default()),
+        })
+        .setup(move |app| {
+            setup(app.handle());
+            Ok(())
+        })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![get_config, run_job])
