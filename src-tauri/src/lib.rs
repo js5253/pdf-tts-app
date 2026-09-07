@@ -3,19 +3,16 @@
 use anyhow::{anyhow, Context};
 use glam::UVec2;
 use image::{ColorType, DynamicImage};
+use once_cell::sync::Lazy;
 use pdf2image::{RenderOptionsBuilder, PDF};
 use pdf_inspector::process_pdf;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
 use std::{
-    env::current_dir,
-    fmt::{Display, Error, Formatter},
-    fs::{self},
-    path::Path,
-    sync::Arc,
-    thread::current,
+    env::current_dir, fmt::{Display, Error, Formatter}, fs::{self}, path::{Path, PathBuf}, sync::Arc, thread::current,
 };
+
 use tauri::AppHandle;
 use tokio::sync::Mutex;
 
@@ -46,7 +43,7 @@ struct TtsJobConfig {
     speaker_id: i32,
     use_ocr: bool, // end TTS config here
 }
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 struct TtsAppConfig {
     /// start the narration at a certain page
     start_page: usize,
@@ -68,20 +65,24 @@ struct TtsAppConfig {
 }
 impl TtsAppConfig {
     fn load_or_default() -> Self {
-        if fs::exists("config.toml").unwrap() {
+        let path = Path::new("config.toml");
+        if fs::exists(path).is_ok_and(|item| item) {
             let config = fs::read_to_string("config.toml").unwrap();
             let config: TtsAppConfig = toml::from_str(config.as_str()).unwrap();
 
             config
         } else {
-            TtsAppConfig {
+            let config = TtsAppConfig {
                 start_page: 0,
                 voice: String::from("vits-piper-en_US-libritts_r-medium"),
                 speed: 1.0,
                 combine_pages: true,
                 speaker_id: 1,
                 output_prefix: String::from("page_"),
-            }
+            };
+            fs::write(path, toml::to_string(&config).unwrap()).unwrap();
+
+            config
         }
     }
 }
@@ -265,9 +266,15 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
     Ok(())
 }
 #[tauri::command]
-fn get_config(state: tauri::State<'_, AppState>) -> TtsAppConfig {
-    // state.settings.lock().await
-    TtsAppConfig::load_or_default()
+async fn get_config(state: tauri::State<'_, AppState>) -> TtsAppConfig {
+    // TODO: figure out best practice for returning data based on mutex
+    let config: TtsAppConfig = {
+    let config = state.settings.lock().await;
+        config.clone()
+    };
+
+    config
+
 }
 fn setup(app: &AppHandle) {
     // app.
