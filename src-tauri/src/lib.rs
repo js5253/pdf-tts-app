@@ -1,20 +1,19 @@
+#![feature(path_absolute_method)]
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use anyhow::{anyhow, Context};
 use glam::UVec2;
-use image::{imageops, ColorType, DynamicImage, EncodableLayout, GrayImage};
+use image::{ColorType, DynamicImage};
 use pdf2image::{RenderOptionsBuilder, PDF};
+use pdf_inspector::process_pdf;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use sherpa_onnx::{
-    GenerationConfig, OfflineTts, OfflineTtsConfig,
-    OfflineTtsVitsModelConfig,
-};
+use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
 use std::{
-    fmt::{Display, Error, Formatter},
-    fs::{self},
+    env::current_dir, fmt::{Display, Error, Formatter}, fs::{self}, path::Path, sync::Arc, thread::current,
 };
+use tokio::sync::Mutex;
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 struct TtsJobConfig {
     /// PDF file to open
     input_file: String,
@@ -35,7 +34,7 @@ struct TtsJobConfig {
     /// for voices that have multiple speakers, pass a speaker_id.
     // #[arg(short, long, default_value_t = 1)]
     speaker_id: i32,
-    // end TTS config here
+    use_ocr: bool, // end TTS config here
 }
 #[derive(Serialize, Deserialize)]
 struct TtsAppConfig {
@@ -65,7 +64,7 @@ impl Default for TtsAppConfig {
             speed: 1.0,
             combine_pages: true,
             speaker_id: 1,
-            output_prefix: String::from("page_")
+            output_prefix: String::from("page_"),
         }
     }
 }
@@ -89,12 +88,7 @@ fn ocr_region(dims: UVec2, coords: UVec2, image: &DynamicImage) -> String {
         ColorType::La8 => 1,
         ColorType::Rgb8 => 3,
         ColorType::Rgba8 => 4,
-        //ColorType::L16=>2,
-        //ColorType::La16=>4,
-        //ColorType::Rgb16=>48,
-        //ColorType::Rgba16=>64,
-        //ColorType::Rgb32F=>96,
-        //ColorType::Rgba32F=>128,
+
         _ => panic!("invalid value"),
     };
     let stride_line: u32 = image_dims.x * stride_pixel;
@@ -119,8 +113,8 @@ fn text_from_image(image: &DynamicImage) -> (String, String) {
     let left_coords = UVec2::from_array([374, 193]) * image_dims / old_dims; //TODO
     let right_coords = UVec2::from_array([1808, 196]) * image_dims / old_dims; //TODO
 
-    let left_text = post_process_text(&ocr_region(dims, left_coords, &image));
-    let right_text = post_process_text(&ocr_region(dims, right_coords, &image));
+    let left_text = post_process_text(&ocr_region(dims, left_coords, image));
+    let right_text = post_process_text(&ocr_region(dims, right_coords, image));
     (left_text, right_text)
 }
 fn post_process_text(string: &str) -> String {
@@ -143,49 +137,73 @@ impl serde::Serialize for CommandError {
 
 #[tauri::command]
 fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
-    println!("run_job");
-    let pdf = PDF::from_file(&job.input_file).unwrap();
-    let page_images: Vec<DynamicImage> = pdf
-        .render(
-            pdf2image::Pages::Range(job.start_page as u32..=(pdf.page_count() - 1)),
-            RenderOptionsBuilder::default()
-                .greyscale(true)
-                .build()
-                .context("Could not create render options.")?,
-        )
-        .context("Could not render a pdf into an image.")?
-        .iter_mut()
-        .map(|page| page.grayscale().rotate90())
-        .collect();
+    println!("Job Config: {:?}", job);
+    let mut p: Vec<Page> = match job.use_ocr {
+        true => {
+            let mut p = Vec::new();
+            let input_path = Path::new(&job.input_file);
+            let pdf = process_pdf(input_path);
 
-    let mut pages: Vec<Page> = page_images
-        .par_iter()
-        .enumerate()
-        .flat_map(|(file_index, page)| {
-            let (left_text, right_text) = text_from_image(page);
-            [
-                Page {
-                    index: 2 * file_index as u32,
-                    contents: left_text,
-                },
-                Page {
-                    index: 2 * file_index as u32 + 1,
-                    contents: right_text,
-                },
-            ]
-        })
-        .collect();
-    pages.sort_by_key(|item| item.index);
+            if let Some(text) = &pdf
+                .map_err(|_| anyhow!("Could not extract text from PDF."))?
+                .markdown
+            {
+                p.push(Page {
+                    contents: text.clone(),
+                    index: 0,
+                })
+            };
+            p
+        }
+        false => {
+            let pdf = PDF::from_file(&job.input_file).unwrap();
+            let page_images: Vec<DynamicImage> = pdf
+                .render(
+                    pdf2image::Pages::Range(job.start_page as u32..=(pdf.page_count() - 1)),
+                    RenderOptionsBuilder::default()
+                        .greyscale(true)
+                        .build()
+                        .context("Could not create render options.")?,
+                )
+                .context("Could not render a pdf into an image.")?
+                .iter_mut()
+                .map(|page| page.grayscale().rotate90())
+                .collect();
+
+            page_images
+                .par_iter()
+                .enumerate()
+                .flat_map(|(file_index, page)| {
+                    let (left_text, right_text) = text_from_image(page);
+                    [
+                        Page {
+                            index: 2 * file_index as u32,
+                            contents: left_text,
+                        },
+                        Page {
+                            index: 2 * file_index as u32 + 1,
+                            contents: right_text,
+                        },
+                    ]
+                })
+                .collect()
+        }
+    };
+    p.sort_by_key(|item| item.index);
 
     if fs::read_dir("out").is_err() {
         fs::create_dir("out").unwrap();
     }
-
-    let mut dir = fs::read_dir(format!("tts/{}", job.voice)).context("No TTS Model")?;
+    println!("{:?}", p);
+    let binding = std::env::current_dir().context("Error finding TTS Model path")?;
+    let current_path = binding.parent().ok_or(anyhow!("Error finding TTS Model path"))?;
+    // let current_path = Path::new();
+    let mut dir = fs::read_dir(current_path.join(&job.voice)).context("No TTS Model")?;
 
     if dir.next().is_none() {
         return Err(anyhow!("ASAAS").into());
     }
+    // TODO: FIX THIS TO USE ACTUAL GOOD PATHS.
     let config = OfflineTtsConfig {
         model: sherpa_onnx::OfflineTtsModelConfig {
             vits: OfflineTtsVitsModelConfig {
@@ -210,6 +228,7 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
         speed: 1.0,
         ..Default::default()
     };
+    println!("Somehow we're past here");
     let audio = tts
         .generate_with_config(
             text,
@@ -220,6 +239,9 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
             }),
         )
         .expect("Generation failed");
+
+    let saved = audio.save("file.wav");
+    println!("Saved: {saved}");
 
     // new code:
     //      if audio.save(&args.output) {
@@ -252,8 +274,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .invoke_handler(tauri::generate_handler![run_job])
-        .invoke_handler(tauri::generate_handler![get_config])
+        .invoke_handler(tauri::generate_handler![get_config, run_job])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

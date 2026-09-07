@@ -1,7 +1,3 @@
-# Tauri + Solid + Typescript
+# PDF-TTS-APP
+Work-in-progress Tauri app that uses sherpa.rs to create a text-to-speech of whatever pdf you send it. Note - currently some parts were hardcoded to a very specific two-page PDF; this will soon be worked on, generalized, and improved upon.
 
-This template should help get you started developing with Tauri, Solid and Typescript in Vite.
-
-## Recommended IDE Setup
-
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)

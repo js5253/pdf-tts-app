@@ -40,13 +40,16 @@ const Home = () => {
     }
     async function createTTS() {
         console.log(ttsConfig())
-        // if (!ttsConfig()) return;
-        // const tc = ttsConfig();
-        // await invoke('run_job', {
-        //     ...tc,
-        //     input_file: currentFilePath()
-        //     // here, add the config 
-        // });
+        if (!ttsConfig()) return;
+        const tc = ttsConfig();
+        await invoke('run_job', {
+            job: {
+                ...tc,
+                input_file: currentFilePath(),
+                use_ocr: true
+            }
+            // here, add the config 
+        });
     }
 
     return <>{currentFilePath() ? <>

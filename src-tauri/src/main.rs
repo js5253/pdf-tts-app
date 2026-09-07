@@ -5,8 +5,10 @@ use tauri::{AppHandle, Builder, Manager};
 fn setup(app: &AppHandle) {
     // app.
 }
-
-fn main() {
-    // Builder::default().setup(move |app| tauri::async_runtime::block_on(setup(app.handle())));
- pdf_tts_app_lib::run();
+#[tokio::main]
+async fn main() {
+    // let _ = Builder::default().setup(move |app| {
+    // setup(app.handle());
+    // Ok(())});
+    pdf_tts_app_lib::run();
 }
