@@ -7,6 +7,7 @@ use pdf_inspector::process_pdf;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
+use anydoc;
 use std::{
     fmt::{Display, Error, Formatter},
     fs::{self},
@@ -23,7 +24,7 @@ struct AppState {
 #[derive(Serialize, Deserialize, Debug)]
 struct TtsJobConfig {
     output_prefix: String,
-    start_page: usize,
+    start_page: u32,
     /// sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html
     voice: String,
     speed: f32,
@@ -133,14 +134,13 @@ impl serde::Serialize for CommandError {
         serializer.serialize_str(&self.to_string())
     }
 }
-
-#[tauri::command]
-fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
-    println!("Job Config: {:?}", job);
-    let mut p: Vec<Page> = match job.use_ocr {
+fn get_page_contents(input_file: &String, use_ocr: bool, start_page: u32) -> Result<Vec<Page>, CommandError> {
+    match &input_file.contains(".pdf") {
+        true => {
+    let mut p: Vec<Page> = match use_ocr {
         false => {
-            let mut p = Vec::new();
-            let input_path = Path::new(&job.input_file);
+            let mut p: Vec<Page> = Vec::new();
+            let input_path = Path::new(&input_file);
             let pdf = process_pdf(input_path);
 
             if let Some(text) = &pdf
@@ -155,10 +155,10 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
             p
         }
         true => {
-            let pdf = PDF::from_file(&job.input_file).context("Could not read PDF file")?;
+            let pdf = PDF::from_file(&input_file).context("Could not read PDF file")?;
             let page_images: Vec<DynamicImage> = pdf
                 .render(
-                    pdf2image::Pages::Range(job.start_page as u32..=(pdf.page_count() - 1)),
+                    pdf2image::Pages::Range(start_page as u32..=(pdf.page_count() - 1)),
                     RenderOptionsBuilder::default()
                         .greyscale(true)
                         .build()
@@ -169,7 +169,7 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
                 .map(|page| page.grayscale().rotate90())
                 .collect();
 
-            page_images
+            Ok(page_images
                 .par_iter()
                 .enumerate()
                 .flat_map(|(file_index, page)| {
@@ -185,10 +185,27 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
                         },
                     ]
                 })
-                .collect()
+                .collect())?
         }
     };
+    Ok(p)
+        }
+        false => {
+            let contents = anydoc::to_markdown(&input_file).map_err(|_| anyhow!("Could not convert input file to markdown"))?;
+            Ok(vec![Page {
+                index: 0,
+                contents: contents
+            }])
+        }
+    }
+}
+
+#[tauri::command]
+fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
+        println!("Job Config: {:?}", job);
+        let mut p = get_page_contents(&job.input_file, job.use_ocr, job.start_page as u32)?;
     p.sort_by_key(|item| item.index);
+
     println!("{:?}", p);
     if fs::read_dir("out").is_err() {
         fs::create_dir("out").context("Failed to create output directory")?;

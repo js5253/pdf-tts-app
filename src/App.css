@@ -1,5 +1,5 @@
 @import "tailwindcss";
-
+@import "@pdfslick/solid/dist/pdf_viewer.css";
 @font-face {
   font-family: "Red Hat Display";
   src: url("/assets/RedHatText-VariableFont-wght.ttf");
@@ -18,7 +18,7 @@
 }
 
 body {
-  font-family: 'Red Hat Text';
+  font-family: 'Red Hat Text', 'Red Hat Text', sans-serif;
 }
 
 h1,
