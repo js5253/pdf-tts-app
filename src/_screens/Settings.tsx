@@ -4,14 +4,16 @@ import { openPath, openUrl } from "@tauri-apps/plugin-opener"
 import { createSignal, For, onMount, Show } from "solid-js";
 import { Button } from "../components/Button";
 import classNames from "classnames";
-import { commands } from "../bindings";
+import { commands, TtsAppConfig } from "../bindings";
 
 const Settings = () => {
     const [dataDir, setDataDir] = createSignal<string | null>(null);
-    const [settings, setSettings] = createSignal(null);
+    const [settings, setSettings] = createSignal<TtsAppConfig | null>(null);
     const [downloadedTtsModels, setDownloadedTtsModels] = createSignal<string[] | null>(null);
     const reloadTtsModels = async () => {
-        setDownloadedTtsModels(await invoke('get_downloaded_models'))
+        const models = await commands.getDownloadedModels();
+        if (models.status === "error") throw new Error();
+        setDownloadedTtsModels(models.data);
 
     }
     const makeDefaultModel = async (modelName: string) => {
@@ -20,7 +22,9 @@ const Settings = () => {
     onMount(async () => {
         console.log(await appDataDir())
         setDataDir(await appDataDir())
-        setSettings(await invoke('get_config'))
+        const sett = await commands.getConfig();
+        if (sett.status === 'error') throw new Error();
+        setSettings(sett.data)
         await reloadTtsModels()
     })
     return (
