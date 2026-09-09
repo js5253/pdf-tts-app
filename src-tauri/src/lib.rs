@@ -15,11 +15,12 @@ use std::{
     fmt::{self, Display, Formatter},
     fs::{self},
     path::Path,
+    time::Duration,
 };
 use tauri_specta::{collect_commands, Builder};
 
 use tauri::AppHandle;
-use tokio::sync::Mutex;
+use tokio::{sync::Mutex, time::Instant};
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -136,10 +137,15 @@ fn post_process_text(string: &str) -> String {
     string.replace("-\n", "").replace("\n", " ")
 }
 #[derive(Clone, Serialize, specta::Type)]
-#[serde(rename_all = "camelCase", rename_all_fields = "camelCase", tag = "event", content = "data")]
+#[serde(
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    tag = "event",
+    content = "data"
+)]
 enum TtsGenerationProgress {
     InProgress(f32),
-    Finished
+    Finished,
 }
 
 fn run_pdf_text(input_file: &String) -> Result<Vec<Page>> {
@@ -208,9 +214,12 @@ fn get_page_contents(input_file: &String, use_ocr: bool, start_page: u32) -> Res
 
 #[tauri::command(async)]
 #[specta::specta]
-async fn run_job(job: TtsJobConfig, progress_reader: tauri::ipc::Channel<TtsGenerationProgress>) -> Result<()> {
+async fn run_job(
+    job: TtsJobConfig,
+    progress_reader: tauri::ipc::Channel<TtsGenerationProgress>,
+) -> Result<()> {
     println!("Job Config: {:?}", job);
-    let mut p = get_page_contents(&job.input_file, job.use_ocr, job.start_page as u32)?;
+    let mut p = get_page_contents(&job.input_file, job.use_ocr, job.start_page)?;
     p.sort_by_key(|item| item.index);
 
     println!("{:?}", p);
@@ -267,19 +276,23 @@ async fn run_job(job: TtsJobConfig, progress_reader: tauri::ipc::Channel<TtsGene
         all_text += &item.contents;
     });
     let reader = progress_reader.clone();
+    // debounce so we don't send too many progress updates
+    let mut timer = Instant::now();
     let audio = tts
         .generate_with_config(
             all_text.as_str(),
             &gen_config,
             Some(move |_samples: &[f32], progress: f32| -> bool {
+                if timer.elapsed() > Duration::from_secs(1) {
+                    let _ = progress_reader.send(TtsGenerationProgress::InProgress(progress));
+                    timer = Instant::now();
+                }
                 println!("Progress: {:.1}%", progress * 100.0);
-                let _ = progress_reader.send(TtsGenerationProgress::InProgress(progress));
                 true
             }),
         )
         .context("TTS Generation failed")?;
     reader.send(TtsGenerationProgress::Finished).unwrap();
-        
 
     let saved = audio.save("file.wav");
     println!("Saved: {saved}");

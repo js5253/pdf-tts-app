@@ -1,6 +1,6 @@
 import { openPath } from "@tauri-apps/plugin-opener"
 import { Button } from "../components/Button"
-import { appDataDir, dataDir } from "@tauri-apps/api/path"
+import { appDataDir } from "@tauri-apps/api/path"
 import { createSignal, onMount } from "solid-js";
 import { useNavigate } from "@solidjs/router";
 

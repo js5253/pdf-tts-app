@@ -12,7 +12,11 @@ const Layout = (props) => {
         <>
             <AppBar />
             <ErrorBoundary fallback={(error, reset) => (
-                <p>Something went wrong: {error}</p>
+                <div class="h-screen flex flex-col justify-center items-center">
+                <h1 class="text-3xl italic">Achievement unlocked: how did we get here?</h1>
+                <h2 class="text-xl text-italic text-gray-500">(Error: {error})</h2>
+                <p>Try restarting the app.</p>
+                </div>
             )}>
             <div class="grow flex flex-col gap-4 items-center justify-center p-8 pt-16">
                 {props.children}

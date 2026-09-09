@@ -5,14 +5,14 @@ import { createSignal, onCleanup, onMount } from "solid-js"
 import { useNavigate } from "@solidjs/router";
 import { SelectRegion } from './SelectRegion';
 import toast from 'solid-toast';
-import { commands, TtsGenerationProgress } from '../bindings';
+import { commands, TtsAppConfig, TtsGenerationProgress } from '../bindings';
 import { Button } from '../components/Button';
 
 
 const Home = () => {
     const navigate = useNavigate();
     const [isHovering, setIsHovering] = createSignal(false);
-    const [ttsConfig, setTtsConfig] = createSignal(); ///TODO
+    const [ttsConfig, setTtsConfig] = createSignal<TtsAppConfig>(); ///TODO
     const [currentFilePath, setCurrentFilePath] = createSignal<string | null>(null);
     const onEvent = new Channel<TtsGenerationProgress>(); // this is probably an erroneous line
     onEvent.onmessage = (message) => {
@@ -47,7 +47,6 @@ const Home = () => {
         setCurrentFilePath(null)
     }
     async function openFilePicker() {
-        // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
         const file = await open({
             multiple: false,
             directory: false,
@@ -56,13 +55,13 @@ const Home = () => {
     }
     async function createTTS() {
         console.log(ttsConfig())
-        if (!ttsConfig()) return;
-        const tc = ttsConfig();
+        const config = ttsConfig();
+        if (!config || currentFilePath() === null) return;
         try {
             if (!currentFilePath()?.indexOf('.pdf') && !currentFilePath()?.indexOf('.epub') || !currentFilePath()?.indexOf('.docx')) throw new Error("invalid file type")
 
             await commands.runJob({
-                ...tc,
+                ...config,
                 input_file: currentFilePath(),
                 use_ocr: false
             }, onEvent);
@@ -100,7 +99,7 @@ const Home = () => {
         <h1 class="text-5xl">Drag your file here</h1>
         <p>or</p>
         <Button className="bg-transparent border border-green-700 p-2 shadow-lg" onClick={() => openFilePicker().then()}>Select A File</Button>
-        <p class="text-gray-400 text-center">PDF, ePub, and DOCX are currently supported. Need only specific pages, regions, etc? Pre-process them in different software.</p>
+        <p class="text-gray-700 text-center">PDF, ePub, and DOCX are currently supported. Need only specific pages, regions, etc? Pre-process them in different software.</p>
     </div>}
     </>
 }
