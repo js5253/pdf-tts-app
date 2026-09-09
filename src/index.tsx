@@ -1,5 +1,5 @@
 /* @refresh reload */
-import { render } from "solid-js/web";
+import { ErrorBoundary, render } from "solid-js/web";
 import { Route, Router } from "@solidjs/router";
 import { AppBar } from "./components/AppBar";
 import "./App.css";
@@ -11,10 +11,13 @@ const Layout = (props) => {
     return (
         <>
             <AppBar />
-
+            <ErrorBoundary fallback={(error, reset) => (
+                <p>Something went wrong: {error}</p>
+            )}>
             <div class="grow flex flex-col gap-4 items-center justify-center p-8 pt-16">
                 {props.children}
             </div>
+            </ErrorBoundary>
             <Toaster />
 
         </>

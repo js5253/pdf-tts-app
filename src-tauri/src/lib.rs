@@ -1,4 +1,5 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+use anydoc;
 use anyhow::{anyhow, Context};
 use glam::UVec2;
 use image::{ColorType, DynamicImage};
@@ -7,19 +8,29 @@ use pdf_inspector::process_pdf;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
-use anydoc;
 use specta::specta;
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
-use tauri_specta::{Builder, collect_commands};
 use std::{
-    fmt::{Display, Error, Formatter},
+    fmt::{self, Display, Formatter},
     fs::{self},
     path::Path,
 };
+use tauri_specta::{collect_commands, Builder};
 
 use tauri::AppHandle;
 use tokio::sync::Mutex;
+
+type Result<T> = std::result::Result<T, Error>;
+
+#[derive(Debug, specta::Type, Serialize)]
+pub struct Error(String);
+
+impl From<anyhow::Error> for Error {
+    fn from(error: anyhow::Error) -> Self {
+        Self(format!("{error:#}"))
+    }
+}
 
 struct AppState {
     settings: Mutex<TtsAppConfig>,
@@ -42,12 +53,12 @@ struct TtsJobConfig {
 #[derive(Serialize, Deserialize, Clone, specta::Type)]
 struct TtsAppConfig {
     /// start the narration at a certain page
-    start_page: usize,
+    start_page: u32,
     output_prefix: String,
     voice: String,
     speed: f32,
     combine_pages: bool,
-    speaker_id: i32,
+    speaker_id: u32,
 }
 impl TtsAppConfig {
     fn load_or_default() -> Self {
@@ -79,12 +90,12 @@ struct Page {
     contents: String,
 }
 impl Display for Page {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "Page {}: {}", self.index, self.contents)
     }
 }
 
-fn ocr_region(dims: UVec2, coords: UVec2, image: &DynamicImage) -> Result<String, CommandError> {
+fn ocr_region(dims: UVec2, coords: UVec2, image: &DynamicImage) -> Result<String> {
     let image_dims = UVec2::from_array([image.width(), image.height()]);
     //assert!(image.color() == ColorType::L8);
     let stride_pixel: u32 = match image.color() {
@@ -124,93 +135,82 @@ fn text_from_image(image: &DynamicImage) -> (String, String) {
 fn post_process_text(string: &str) -> String {
     string.replace("-\n", "").replace("\n", " ")
 }
+#[derive(Clone, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase", rename_all_fields = "camelCase", tag = "event", content = "data")]
+enum TtsGenerationProgress {
+    InProgress(f32),
+    Finished
+}
 
+fn run_pdf_text(input_file: &String) -> Result<Vec<Page>> {
+    let mut p: Vec<Page> = Vec::new();
+    let input_path = Path::new(&input_file);
+    let pdf = process_pdf(input_path);
 
-#[derive(Debug, thiserror::Error, specta::Type)]
-    #[error(transparent)]
-pub struct CommandError(#[from] anyhow::Error);
-impl serde::Serialize for CommandError {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
+    if let Some(text) = &pdf
+        .map_err(|_| anyhow!("Could not extract text from PDF."))?
+        .markdown
     {
-        serializer.serialize_str(&self.to_string())
-    }
+        p.push(Page {
+            contents: text.clone(),
+            index: 0,
+        })
+    };
+    Ok(p)
 }
-fn run_pdf_text(input_file: &String) -> Result<Vec<Page>, CommandError> {
-            let mut p: Vec<Page> = Vec::new();
-            let input_path = Path::new(&input_file);
-            let pdf = process_pdf(input_path);
+fn run_pdf_ocr(input_file: &String, start_page: u32) -> Result<Vec<Page>> {
+    let pdf = PDF::from_file(input_file).context("Could not read PDF file")?;
+    let page_images: Vec<DynamicImage> = pdf
+        .render(
+            pdf2image::Pages::Range(start_page..=(pdf.page_count() - 1)),
+            RenderOptionsBuilder::default()
+                .greyscale(true)
+                .build()
+                .context("Could not create render options.")?,
+        )
+        .context("Could not render a pdf into an image.")?
+        .iter_mut()
+        .map(|page| page.grayscale().rotate90())
+        .collect();
 
-            if let Some(text) = &pdf
-                .map_err(|_| anyhow!("Could not extract text from PDF."))?
-                .markdown
-            {
-                p.push(Page {
-                    contents: text.clone(),
-                    index: 0,
-                })
-            };
-            Ok(p)
-
+    let pages: Vec<Page> = page_images
+        .par_iter()
+        .enumerate()
+        .flat_map(|(file_index, page)| {
+            let (left_text, right_text) = text_from_image(page);
+            [
+                Page {
+                    index: 2 * file_index as u32,
+                    contents: left_text,
+                },
+                Page {
+                    index: 2 * file_index as u32 + 1,
+                    contents: right_text,
+                },
+            ]
+        })
+        .collect();
+    Ok(pages)
 }
-fn run_pdf_ocr(input_file: &String, start_page: u32) -> Result<Vec<Page>, CommandError> {
-                let pdf = PDF::from_file(input_file).context("Could not read PDF file")?;
-            let page_images: Vec<DynamicImage> = pdf
-                .render(
-                    pdf2image::Pages::Range(start_page..=(pdf.page_count() - 1)),
-                    RenderOptionsBuilder::default()
-                        .greyscale(true)
-                        .build()
-                        .context("Could not create render options.")?,
-                )
-                .context("Could not render a pdf into an image.")?
-                .iter_mut()
-                .map(|page| page.grayscale().rotate90())
-                .collect();
-
-            let pages: Vec<Page> = page_images
-                .par_iter()
-                .enumerate()
-                .flat_map(|(file_index, page)| {
-                    let (left_text, right_text) = text_from_image(page);
-                    [
-                        Page {
-                            index: 2 * file_index as u32,
-                            contents: left_text,
-                        },
-                        Page {
-                            index: 2 * file_index as u32 + 1,
-                            contents: right_text,
-                        },
-                    ]
-                })
-                .collect();
-            Ok(pages)
-}
-fn get_page_contents(input_file: &String, use_ocr: bool, start_page: u32) -> Result<Vec<Page>, CommandError> {
+fn get_page_contents(input_file: &String, use_ocr: bool, start_page: u32) -> Result<Vec<Page>> {
     match &input_file.contains(".pdf") {
-        true => {
-            match use_ocr {
-                true => run_pdf_ocr(input_file, start_page),
-                false => run_pdf_text(input_file)
-            }
+        true => match use_ocr {
+            true => run_pdf_ocr(input_file, start_page),
+            false => run_pdf_text(input_file),
         },
         false => {
-            let contents = anydoc::to_markdown(input_file).map_err(|_| anyhow!("could not get markdown from PDF"))?;
-            Ok(vec![Page {
-                index: 0,
-                contents
-            }])
+            let contents = anydoc::to_markdown(input_file)
+                .map_err(|_| anyhow!("could not get markdown from PDF"))?;
+            Ok(vec![Page { index: 0, contents }])
         }
     }
 }
 
-#[tauri::command]
+#[tauri::command(async)]
 #[specta::specta]
-fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
-        println!("Job Config: {:?}", job);
-        let mut p = get_page_contents(&job.input_file, job.use_ocr, job.start_page as u32)?;
+async fn run_job(job: TtsJobConfig, progress_reader: tauri::ipc::Channel<TtsGenerationProgress>) -> Result<()> {
+    println!("Job Config: {:?}", job);
+    let mut p = get_page_contents(&job.input_file, job.use_ocr, job.start_page as u32)?;
     p.sort_by_key(|item| item.index);
 
     println!("{:?}", p);
@@ -262,21 +262,24 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
         speed: 1.0,
         ..Default::default()
     };
-    println!("Somehow we're past here");
     let mut all_text = String::new();
     p.iter().for_each(|item| {
         all_text += &item.contents;
     });
+    let reader = progress_reader.clone();
     let audio = tts
         .generate_with_config(
             all_text.as_str(),
             &gen_config,
-            Some(|_samples: &[f32], progress: f32| -> bool {
+            Some(move |_samples: &[f32], progress: f32| -> bool {
                 println!("Progress: {:.1}%", progress * 100.0);
+                let _ = progress_reader.send(TtsGenerationProgress::InProgress(progress));
                 true
             }),
         )
         .context("TTS Generation failed")?;
+    reader.send(TtsGenerationProgress::Finished).unwrap();
+        
 
     let saved = audio.save("file.wav");
     println!("Saved: {saved}");
@@ -284,8 +287,8 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
     Ok(())
 }
 #[tauri::command]
-#[specta::specta] 
-async fn get_config(state: tauri::State<'_, AppState>) -> Result<TtsAppConfig, ()> {
+#[specta::specta]
+async fn get_config(state: tauri::State<'_, AppState>) -> Result<TtsAppConfig> {
     // TODO: figure out best practice for returning data based on mutex
     let config: TtsAppConfig = {
         let config = state.settings.lock().await;
@@ -294,8 +297,8 @@ async fn get_config(state: tauri::State<'_, AppState>) -> Result<TtsAppConfig, (
     Ok(config)
 }
 #[tauri::command]
-#[specta::specta] 
-fn get_downloaded_models() -> Result<Vec<String>, CommandError> {
+#[specta::specta]
+fn get_downloaded_models() -> Result<Vec<String>> {
     let mut models: Vec<String> = Vec::new();
     let binding = std::env::current_dir().context("could not open tts model path")?;
     let model_path = binding
@@ -309,16 +312,21 @@ fn get_downloaded_models() -> Result<Vec<String>, CommandError> {
 }
 
 #[tauri::command]
-#[specta::specta] 
-async fn set_default_model(model_name: String, state: tauri::State<'_, AppState>) -> Result<(), ()> {
+#[specta::specta]
+async fn set_default_model(model_name: String, state: tauri::State<'_, AppState>) -> Result<()> {
     state.settings.lock().await.voice = model_name;
     Ok(())
 }
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-        let builder = Builder::<tauri::Wry>::new()
+    let builder = Builder::<tauri::Wry>::new()
         // Then register them (separated by a comma)
-        .commands(collect_commands![set_default_model,get_config,get_downloaded_models,run_job]);
+        .commands(collect_commands![
+            set_default_model,
+            get_config,
+            get_downloaded_models,
+            run_job
+        ]);
     #[cfg(debug_assertions)] // <- Only export on non-release builds
     builder
         .export(Typescript::default(), "../src/bindings.ts")

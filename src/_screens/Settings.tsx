@@ -1,9 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { appDataDir } from "@tauri-apps/api/path"
 import { openPath, openUrl } from "@tauri-apps/plugin-opener"
-import { createSignal, onMount } from "solid-js";
+import { createSignal, For, onMount, Show } from "solid-js";
 import { Button } from "../components/Button";
 import classNames from "classnames";
+import { commands } from "../bindings";
 
 const Settings = () => {
     const [dataDir, setDataDir] = createSignal<string | null>(null);
@@ -14,7 +15,7 @@ const Settings = () => {
 
     }
     const makeDefaultModel = async (modelName: string) => {
-        await invoke('set_default_model', {modelName});
+        await commands.setDefaultModel(modelName);
     }
     onMount(async () => {
         console.log(await appDataDir())
@@ -45,13 +46,15 @@ const Settings = () => {
                     <Button className="p-2 bg-blue-400" onClick={() => openPath(dataDir())}>Open Directory</Button>
                     <Button onClick={reloadTtsModels}>Reload TTS Models</Button>
                 </div>
-                <ul>
-                    {downloadedTtsModels()?.map(model => (
-                        <li class={classNames("px-4 py-2 bg-gray-200 rounded flex flex-row items-between justify-between", {"a": settings().voice == model})}>{model} <Button onClick={() => makeDefaultModel(model)}>Make Default</Button></li>
-                    ))}
+                <ul class="flex flex-col gap-2">
+                    <For each={downloadedTtsModels()}>
+                        {(model) => <li data-index={model} class={classNames("shadow bg-green-50 px-4 py-2 bg-gray-200 rounded flex flex-row items-between justify-between", { "font-bold": settings().voice == model })}>{model} 
+                            
+                            <Show when={settings().voice !== model}><Button onClick={() => makeDefaultModel(model)}>Make Default</Button></Show></li>}
+                    </For>
                 </ul>
 
-            </div> </>: <p></p>}
+            </div> </> : <p></p>}
         </>
     )
 }
