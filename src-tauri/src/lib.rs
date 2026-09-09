@@ -8,6 +8,10 @@ use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
 use anydoc;
+use specta::specta;
+#[cfg(debug_assertions)]
+use specta_typescript::Typescript;
+use tauri_specta::{Builder, collect_commands};
 use std::{
     fmt::{Display, Error, Formatter},
     fs::{self},
@@ -21,7 +25,7 @@ struct AppState {
     settings: Mutex<TtsAppConfig>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, specta::Type)]
 struct TtsJobConfig {
     output_prefix: String,
     start_page: u32,
@@ -35,7 +39,7 @@ struct TtsJobConfig {
     // end TTS config here
     input_file: String,
 }
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, specta::Type)]
 struct TtsAppConfig {
     /// start the narration at a certain page
     start_page: usize,
@@ -121,11 +125,10 @@ fn post_process_text(string: &str) -> String {
     string.replace("-\n", "").replace("\n", " ")
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum CommandError {
+
+#[derive(Debug, thiserror::Error, specta::Type)]
     #[error(transparent)]
-    JobFailed(#[from] anyhow::Error),
-}
+pub struct CommandError(#[from] anyhow::Error);
 impl serde::Serialize for CommandError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -204,6 +207,7 @@ fn get_page_contents(input_file: &String, use_ocr: bool, start_page: u32) -> Res
 }
 
 #[tauri::command]
+#[specta::specta]
 fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
         println!("Job Config: {:?}", job);
         let mut p = get_page_contents(&job.input_file, job.use_ocr, job.start_page as u32)?;
@@ -280,6 +284,7 @@ fn run_job(job: TtsJobConfig) -> Result<(), CommandError> {
     Ok(())
 }
 #[tauri::command]
+#[specta::specta] 
 async fn get_config(state: tauri::State<'_, AppState>) -> Result<TtsAppConfig, ()> {
     // TODO: figure out best practice for returning data based on mutex
     let config: TtsAppConfig = {
@@ -289,23 +294,36 @@ async fn get_config(state: tauri::State<'_, AppState>) -> Result<TtsAppConfig, (
     Ok(config)
 }
 #[tauri::command]
+#[specta::specta] 
 fn get_downloaded_models() -> Result<Vec<String>, CommandError> {
     let mut models: Vec<String> = Vec::new();
-    let binding = std::env::current_dir().context("Error finding TTS Model path")?;
+    let binding = std::env::current_dir().context("could not open tts model path")?;
     let model_path = binding
         .parent()
-        .ok_or(anyhow!("Couldn't build TTS Model path"))?;
+        .ok_or(anyhow!("could not open tts model path"))?;
 
     let dir = fs::read_dir(model_path.join("tts")).context("No TTS Model")?;
-    dir.for_each(|item| models.push(item.unwrap().path().to_string_lossy().to_string()));
+    dir.for_each(|item| models.push(item.unwrap().file_name().to_string_lossy().to_string()));
 
     Ok(models)
 }
-// fn setup(app: &AppHandle) {
-//     app.
-// }
+
+#[tauri::command]
+#[specta::specta] 
+async fn set_default_model(model_name: String, state: tauri::State<'_, AppState>) -> Result<(), ()> {
+    state.settings.lock().await.voice = model_name;
+    Ok(())
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+        let builder = Builder::<tauri::Wry>::new()
+        // Then register them (separated by a comma)
+        .commands(collect_commands![set_default_model,get_config,get_downloaded_models,run_job]);
+    #[cfg(debug_assertions)] // <- Only export on non-release builds
+    builder
+        .export(Typescript::default(), "../src/bindings.ts")
+        .expect("Failed to export typescript bindings");
+
     tauri::Builder::default()
         .manage(AppState {
             settings: Mutex::new(TtsAppConfig::load_or_default()),
@@ -318,6 +336,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_config,
+            set_default_model,
             get_downloaded_models,
             run_job
         ])

@@ -1,23 +1,29 @@
 import { invoke } from "@tauri-apps/api/core";
 import { appDataDir } from "@tauri-apps/api/path"
-import { openUrl } from "@tauri-apps/plugin-opener"
+import { openPath, openUrl } from "@tauri-apps/plugin-opener"
 import { createSignal, onMount } from "solid-js";
 import { Button } from "../components/Button";
+import classNames from "classnames";
 
 const Settings = () => {
     const [dataDir, setDataDir] = createSignal<string | null>(null);
+    const [settings, setSettings] = createSignal(null);
     const [downloadedTtsModels, setDownloadedTtsModels] = createSignal<string[] | null>(null);
     const reloadTtsModels = async () => {
         setDownloadedTtsModels(await invoke('get_downloaded_models'))
 
     }
+    const makeDefaultModel = async (modelName: string) => {
+        await invoke('set_default_model', {modelName});
+    }
     onMount(async () => {
         console.log(await appDataDir())
         setDataDir(await appDataDir())
+        setSettings(await invoke('get_config'))
         await reloadTtsModels()
     })
     return (
-        <>
+        <>{settings ? <>
             <div class="flex-col gap-2">
                 <h1 class="text-xl">Default Options</h1>
                 <input type="checkbox" name="sameOutputDirectory" />
@@ -36,16 +42,16 @@ const Settings = () => {
                 <p>Currently, downloading TTS voices is not available in-app. Manually download models, unzip them, and place them into the app's location/tts folder.</p>
                 <div class="gap-2 flex flex-row">
                     <Button className="p-2 bg-blue-400" onClick={() => { openUrl('https://github.com/k2-fsa/sherpa-onnx').then() }}>Open Sherpa-ONNX models</Button>
-                    <Button className="p-2 bg-blue-400" onClick={() => openUrl(dataDir())}>Open Directory</Button>
+                    <Button className="p-2 bg-blue-400" onClick={() => openPath(dataDir())}>Open Directory</Button>
                     <Button onClick={reloadTtsModels}>Reload TTS Models</Button>
                 </div>
                 <ul>
                     {downloadedTtsModels()?.map(model => (
-                        <li class="px-4 py-2 bg-gray-200 rounded">{model}</li>
+                        <li class={classNames("px-4 py-2 bg-gray-200 rounded flex flex-row items-between justify-between", {"a": settings().voice == model})}>{model} <Button onClick={() => makeDefaultModel(model)}>Make Default</Button></li>
                     ))}
                 </ul>
 
-            </div>
+            </div> </>: <p></p>}
         </>
     )
 }

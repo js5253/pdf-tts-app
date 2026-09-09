@@ -12,7 +12,7 @@ const Layout = (props) => {
         <>
             <AppBar />
 
-            <div class="grow flex flex-col gap-4 items-center justify-center p-8">
+            <div class="grow flex flex-col gap-4 items-center justify-center p-8 pt-16">
                 {props.children}
             </div>
             <Toaster />
