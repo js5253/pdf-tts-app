@@ -134,11 +134,7 @@ impl serde::Serialize for CommandError {
         serializer.serialize_str(&self.to_string())
     }
 }
-fn get_page_contents(input_file: &String, use_ocr: bool, start_page: u32) -> Result<Vec<Page>, CommandError> {
-    match &input_file.contains(".pdf") {
-        true => {
-    let mut p: Vec<Page> = match use_ocr {
-        false => {
+fn run_pdf_text(input_file: &String) -> Result<Vec<Page>, CommandError> {
             let mut p: Vec<Page> = Vec::new();
             let input_path = Path::new(&input_file);
             let pdf = process_pdf(input_path);
@@ -152,13 +148,14 @@ fn get_page_contents(input_file: &String, use_ocr: bool, start_page: u32) -> Res
                     index: 0,
                 })
             };
-            p
-        }
-        true => {
-            let pdf = PDF::from_file(&input_file).context("Could not read PDF file")?;
+            Ok(p)
+
+}
+fn run_pdf_ocr(input_file: &String, start_page: u32) -> Result<Vec<Page>, CommandError> {
+                let pdf = PDF::from_file(input_file).context("Could not read PDF file")?;
             let page_images: Vec<DynamicImage> = pdf
                 .render(
-                    pdf2image::Pages::Range(start_page as u32..=(pdf.page_count() - 1)),
+                    pdf2image::Pages::Range(start_page..=(pdf.page_count() - 1)),
                     RenderOptionsBuilder::default()
                         .greyscale(true)
                         .build()
@@ -169,7 +166,7 @@ fn get_page_contents(input_file: &String, use_ocr: bool, start_page: u32) -> Res
                 .map(|page| page.grayscale().rotate90())
                 .collect();
 
-            Ok(page_images
+            let pages: Vec<Page> = page_images
                 .par_iter()
                 .enumerate()
                 .flat_map(|(file_index, page)| {
@@ -185,16 +182,22 @@ fn get_page_contents(input_file: &String, use_ocr: bool, start_page: u32) -> Res
                         },
                     ]
                 })
-                .collect())?
-        }
-    };
-    Ok(p)
-        }
+                .collect();
+            Ok(pages)
+}
+fn get_page_contents(input_file: &String, use_ocr: bool, start_page: u32) -> Result<Vec<Page>, CommandError> {
+    match &input_file.contains(".pdf") {
+        true => {
+            match use_ocr {
+                true => run_pdf_ocr(input_file, start_page),
+                false => run_pdf_text(input_file)
+            }
+        },
         false => {
-            let contents = anydoc::to_markdown(&input_file).map_err(|_| anyhow!("Could not convert input file to markdown"))?;
+            let contents = anydoc::to_markdown(input_file).map_err(|_| anyhow!("could not get markdown from PDF"))?;
             Ok(vec![Page {
                 index: 0,
-                contents: contents
+                contents
             }])
         }
     }

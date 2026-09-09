@@ -46,6 +46,7 @@ const Home = () => {
         if (!ttsConfig()) return;
         const tc = ttsConfig();
         try {
+            if (!currentFilePath()?.indexOf('.pdf') && !currentFilePath()?.indexOf('.epub') || !currentFilePath()?.indexOf('.docx')) throw new Error("invalid file type")
             const result = await invoke('run_job', {
             job: {
                 ...tc,
@@ -56,7 +57,7 @@ const Home = () => {
         }); 
         navigate("/done")
         } catch(e) {
-            toast("There was an error. Try again later:" + (e as Error).message);
+            toast("There was an error: " + (e as Error));
             console.log(e)
         }
     }
