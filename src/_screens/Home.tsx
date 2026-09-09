@@ -3,7 +3,6 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
 import { createSignal, onCleanup, onMount } from "solid-js"
 import { useNavigate } from "@solidjs/router";
-import { SelectRegion } from './SelectRegion';
 import toast from 'solid-toast';
 import { commands, TtsAppConfig, TtsGenerationProgress } from '../bindings';
 import { Button } from '../components/Button';
@@ -62,7 +61,7 @@ const Home = () => {
 
             await commands.runJob({
                 ...config,
-                input_file: currentFilePath(),
+                input_file: currentFilePath()!,
                 use_ocr: false
             }, onEvent);
             // navigate("/done")

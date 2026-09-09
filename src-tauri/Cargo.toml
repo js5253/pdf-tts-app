@@ -40,6 +40,7 @@ anydoc = "0.2.4"
 specta = "2.0.0-rc.21"
 specta-typescript = "0.0.12"
 tauri-specta = { version = "2.0.0-rc.21", features = ["derive", "javascript", "typescript"] }
+markdown-strip = "0.1.0"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

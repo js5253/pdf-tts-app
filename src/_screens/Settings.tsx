@@ -42,7 +42,7 @@ const Settings = () => {
                 <label for="sameOutputDirectory">Put the output files in the same directory as the input file.</label>
                 </div>
                 <div>
-                <input type="number" name="speed" value={settings()?.speed} />
+                <input type="number" name="speed" value={settings()?.speed!} />
                 <label for="speed">Speed</label>
                 </div>
                 <div>
@@ -57,7 +57,7 @@ const Settings = () => {
             </div>
             <div class="flex flex-col gap-2">
                 <h2 class="text-xl">TTS Voice Manager</h2>
-                <p>Currently, downloading TTS voices is not available in-app. Manually download models, unzip them, and place them into the app's location/tts folder.</p>
+                <p>Currently, downloading TTS voices is not available in-app. Manually download models, unzip them, and place them into the app's location/tts folder. NOTE: only VITS TTS models are supported at the moment.</p>
                 <div class="gap-2 flex flex-row">
                     <Button className="p-2 bg-blue-400" onClick={() => { openUrl(SHERPA_MODEL_ADDRESS).then() }}>Open Sherpa-ONNX models</Button>
                     <Button className="p-2 bg-blue-400" onClick={() => openPath(dataDir())}>Open Directory</Button>

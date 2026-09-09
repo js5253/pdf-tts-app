@@ -1,14 +1,13 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-use anydoc;
 use anyhow::{anyhow, Context};
 use glam::UVec2;
 use image::{ColorType, DynamicImage};
+use markdown_strip::strip_markdown;
 use pdf2image::{RenderOptionsBuilder, PDF};
 use pdf_inspector::process_pdf;
 use rayon::prelude::*;
-use serde::{Deserialize, Serialize};
+use serde::{Serialize};
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
-use specta::specta;
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 use std::{
@@ -17,10 +16,12 @@ use std::{
     path::Path,
     time::Duration,
 };
+mod config;
 use tauri_specta::{collect_commands, Builder};
 
-use tauri::AppHandle;
 use tokio::{sync::Mutex, time::Instant};
+
+use crate::config::TtsAppConfig;
 
 type Result<T> = std::result::Result<T, Error>;
 
@@ -35,54 +36,6 @@ impl From<anyhow::Error> for Error {
 
 struct AppState {
     settings: Mutex<TtsAppConfig>,
-}
-
-#[derive(Serialize, Deserialize, Debug, specta::Type)]
-struct TtsJobConfig {
-    output_prefix: String,
-    start_page: u32,
-    /// sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html
-    voice: String,
-    speed: f32,
-    combine_pages: bool,
-    /// for voices that have multiple speakers, pass a speaker_id.
-    speaker_id: u32,
-    use_ocr: bool,
-    // end TTS config here
-    input_file: String,
-}
-#[derive(Serialize, Deserialize, Clone, specta::Type)]
-struct TtsAppConfig {
-    /// start the narration at a certain page
-    start_page: u32,
-    output_prefix: String,
-    voice: String,
-    speed: f32,
-    combine_pages: bool,
-    speaker_id: u32,
-}
-impl TtsAppConfig {
-    fn load_or_default() -> Self {
-        let path = Path::new("config.toml");
-        if fs::exists(path).is_ok_and(|item| item) {
-            let config = fs::read_to_string("config.toml").unwrap();
-            let config: TtsAppConfig = toml::from_str(config.as_str()).unwrap();
-
-            config
-        } else {
-            let config = TtsAppConfig {
-                start_page: 0,
-                voice: String::from("vits-piper-en_US-libritts_r-medium"),
-                speed: 1.0,
-                combine_pages: true,
-                speaker_id: 1,
-                output_prefix: String::from("page_"),
-            };
-            fs::write(path, toml::to_string(&config).unwrap()).unwrap();
-
-            config
-        }
-    }
 }
 
 #[derive(Debug)]
@@ -158,7 +111,7 @@ fn run_pdf_text(input_file: &String) -> Result<Vec<Page>> {
         .markdown
     {
         p.push(Page {
-            contents: text.clone(),
+            contents: strip_markdown(&text.clone()),
             index: 0,
         })
     };
@@ -207,6 +160,7 @@ fn get_page_contents(input_file: &String, use_ocr: bool, start_page: u32) -> Res
         false => {
             let contents = anydoc::to_markdown(input_file)
                 .map_err(|_| anyhow!("could not get markdown from PDF"))?;
+            let contents = strip_markdown(&contents.to_string());
             Ok(vec![Page { index: 0, contents }])
         }
     }
@@ -215,7 +169,7 @@ fn get_page_contents(input_file: &String, use_ocr: bool, start_page: u32) -> Res
 #[tauri::command(async)]
 #[specta::specta]
 async fn run_job(
-    job: TtsJobConfig,
+    job: config::TtsJobConfig,
     progress_reader: tauri::ipc::Channel<TtsGenerationProgress>,
 ) -> Result<()> {
     println!("Job Config: {:?}", job);
@@ -259,7 +213,7 @@ async fn run_job(
                 length_scale: 1.0,
                 ..Default::default()
             },
-            num_threads: 8,
+            num_threads: std::thread::available_parallelism().map_err(|_| anyhow!("could not get thread count for tts generation"))?.get() as i32,
             debug: true,
             ..Default::default()
         },
@@ -267,8 +221,8 @@ async fn run_job(
     };
     let tts = OfflineTts::create(&config).ok_or(anyhow!("Could not create TTS Engine"))?;
     let gen_config = GenerationConfig {
-        sid: 1,
-        speed: 1.0,
+        sid: job.speaker_id as i32,
+        speed: job.speed,
         ..Default::default()
     };
     let mut all_text = String::new();
@@ -287,7 +241,6 @@ async fn run_job(
                     let _ = progress_reader.send(TtsGenerationProgress::InProgress(progress));
                     timer = Instant::now();
                 }
-                println!("Progress: {:.1}%", progress * 100.0);
                 true
             }),
         )
@@ -295,9 +248,10 @@ async fn run_job(
     reader.send(TtsGenerationProgress::Finished).unwrap();
 
     let saved = audio.save("file.wav");
-    println!("Saved: {saved}");
-
-    Ok(())
+    match saved {
+        true => Ok(()),
+        false => Err(anyhow!("failed to save audio file").into())
+    }
 }
 #[tauri::command]
 #[specta::specta]

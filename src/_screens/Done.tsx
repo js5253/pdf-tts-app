@@ -16,7 +16,7 @@ export const Done = () => {
     }
     return <>
         <h1>Done!</h1>
-        <Button onClick={() => openPath(dataDir())}>View Output</Button>
+        <Button onClick={() => openPath(dataDir()!)}>View Output</Button>
         <Button onClick={navigateHome}>Make Another</Button>
     </>
 }

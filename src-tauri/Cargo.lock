@@ -2898,6 +2898,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "markdown-strip"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ed470cb6927378d14a0d5ea442abbfda21c81227345aff8c574f0e5fefefbb2"
+
+[[package]]
 name = "markup5ever"
 version = "0.38.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3506,6 +3512,7 @@ dependencies = [
  "anyhow",
  "glam",
  "image",
+ "markdown-strip",
  "once_cell",
  "pdf-inspector",
  "pdf2image",
