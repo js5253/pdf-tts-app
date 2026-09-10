@@ -6,14 +6,12 @@ import { useNavigate } from "@solidjs/router";
 import toast from 'solid-toast';
 import { commands, TtsAppConfig, TtsGenerationProgress } from '../bindings';
 import { Button } from '../components/Button';
-
-
 // naive attempt at using resources and solidjs better
-const [config] = createResource(wrappedGetter(commands.getConfig));
 const Home = () => {
-    const [config] = createResource<TtsAppConfig>(wrappedGetter(commands.getConfig));
+    const [initialConfig] = createResource<TtsAppConfig>(commands.getConfig);
     const navigate = useNavigate();
     const [isHovering, setIsHovering] = createSignal(false);
+    const [config, setConfig] = createSignal<TtsAppConfig>(initialConfig()!);
     const [currentFilePath, setCurrentFilePath] = createSignal<string | null>(null);
     const onEvent = new Channel<TtsGenerationProgress>(); // this is probably an erroneous line
     onEvent.onmessage = (message) => {
@@ -51,7 +49,7 @@ const Home = () => {
         setCurrentFilePath(file);
     }
     async function createTTS() {
-        console.log(config)
+        console.log(config())
         if (!config || currentFilePath() === null) return;
         try {
             if (!currentFilePath()?.indexOf('.pdf') && !currentFilePath()?.indexOf('.epub') || !currentFilePath()?.indexOf('.docx')) throw new Error("invalid file type")
@@ -61,15 +59,13 @@ const Home = () => {
                 input_file: currentFilePath()!,
                 use_ocr: false
             }, onEvent);
-            // navigate("/done")
         } catch (e) {
             toast("There was an error: " + (e as Error));
             console.log(e)
         }
     }
 
-    return
-    <Suspense fallback={<></>}>
+    return <Suspense fallback={<></>}>
         <>{currentFilePath() ? <>
             <p>Selected File: {currentFilePath()}</p>
             {/* <SelectRegion pdfFilePath={currentFilePath()} /> */}
@@ -81,19 +77,19 @@ const Home = () => {
                 <h2>Advanced Options</h2>
                 <form>
                     <div>
-                        <input type="checkbox" name='outputPrefix' value={config.output_prefix} />
+                        <input type="checkbox" name='outputPrefix' value={config().output_prefix} />
                         <label for="outputPrefix">Output Prefix</label>
                     </div>
                     <div>
-                        <input type="text" name='voice' value={config.voice} />
+                        <input type="text" name='voice' value={config().voice} />
                         <label for="voice">Voice</label>
                     </div>
                     <div>
-                        <input type="number" name='speed' value={config.speed} />
+                        <input type="number" name='speed' value={config().speed} />
                         <label for="speed">Combine pages into one audio file</label>
                     </div>
                     <div>
-                        <input type="checkbox" name='outputDir' value={config.output_dir} />
+                        <input type="checkbox" name='outputDir' value={config().output_dir} />
                         <label for="outputDir">Output Directory</label>
                     </div>
                 </form>

@@ -1,26 +1,22 @@
 import { appDataDir } from "@tauri-apps/api/path"
 import { openPath, openUrl } from "@tauri-apps/plugin-opener"
-import { createSignal, For, onMount, Show } from "solid-js";
+import { createResource, createSignal, For, onMount, Show } from "solid-js";
 import { Button } from "../components/Button";
 import classNames from "classnames";
 import { commands, TtsAppConfig } from "../bindings";
-const SHERPA_MODEL_ADDRESS = "https://k2-fsa.github.io/sherpa/onnx/tts/all/";
+import { SHERPA_MODEL_ADDRESS } from "../util";
 const Settings = () => {
-    const [dataDir, setDataDir] = createSignal<string | null>(null);
-    const [settings, setSettings] = createSignal<TtsAppConfig | null>(null);
-    const [downloadedTtsModels, setDownloadedTtsModels] = createSignal<string[] | null>(null);
+    const [models, {refetch: refetchModels}] = createResource<string[]>(commands.getDownloadedModels);
+    const [defaultSettings, {refetch: refetchSettings}] = createResource<string[]>(commands.getDownloadedModels);
+    const [dataDir] = createResource<string>(appDataDir)
+    const [settings, setSettings] = createSignal<TtsAppConfig | null>(defaultSettings());
     const reloadTtsModels = async () => {
-        const models = await commands.getDownloadedModels();
-        if (models.status === "error") throw new Error();
-        setDownloadedTtsModels(models.data);
-
+        await refetchModels()
     }
     const reloadSettings = async () => {
-        const sett = await commands.getConfig();
-        if (sett.status === 'error') throw new Error();
-        setSettings(sett.data)
-
+        await refetchSettings()
     }
+
     const makeDefaultModel = async (modelName: string) => {
         await commands.setDefaultModel(modelName);
         await reloadSettings();
@@ -29,12 +25,6 @@ const Settings = () => {
     const onUpdateSetting = (key: string, value: any) => {
         setSettings(prev => ({...prev, [key]: value}))
     }
-    onMount(async () => {
-        await reloadSettings();
-        console.log(await appDataDir())
-        setDataDir(await appDataDir())
-        await reloadTtsModels()
-    })
 
     return (
         <>{settings ? <>
@@ -62,12 +52,12 @@ const Settings = () => {
                 <h2 class="text-xl">TTS Voice Manager</h2>
                 <p>Currently, downloading TTS voices is not available in-app. Manually download models, unzip them, and place them into the app's location/tts folder. NOTE: only VITS TTS models are supported at the moment.</p>
                 <div class="gap-2 flex flex-row">
-                    <Button className="p-2 bg-blue-400" onClick={() => { openUrl(SHERPA_MODEL_ADDRESS).then() }}>Open Sherpa-ONNX models</Button>
+                    <Button className="p-2 bg-blue-400" onClick={() => openUrl(SHERPA_MODEL_ADDRESS)}>Open Sherpa-ONNX models</Button>
                     <Button className="p-2 bg-blue-400" onClick={() => openPath(dataDir() + "/tts")}>Open Directory</Button>
                     <Button onClick={reloadTtsModels}>Reload TTS Models</Button>
                 </div>
                 <ul class="flex flex-col gap-2">
-                    <For each={downloadedTtsModels()}>
+                    <For each={models()}>
                         {(model) => <li data-index={model} class={classNames("shadow bg-green-50 px-4 py-2 bg-gray-200 rounded flex flex-row items-between justify-between", { "font-bold": settings().voice == model })}>{model}
 
                             <Show when={settings().voice !== model}><Button onClick={() => makeDefaultModel(model)}>Make Default</Button></Show></li>}

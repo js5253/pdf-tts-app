@@ -8,9 +8,13 @@ export const commands = {
 	getConfig: () => typedError<TtsAppConfig, Error>(__TAURI_INVOKE("get_config")),
 	getDownloadedModels: () => typedError<string[], Error>(__TAURI_INVOKE("get_downloaded_models")),
 	runJob: (job: TtsJobConfig, progressReader: Channel<TtsGenerationProgress>) => typedError<null, Error>(__TAURI_INVOKE("run_job", { job, progressReader })),
+	getCompletedOnboarding: () => typedError<boolean, Error>(__TAURI_INVOKE("get_completed_onboarding")),
+	setCompletedOnboarding: (request: CompletedOnboardingRequest) => typedError<null, Error>(__TAURI_INVOKE("set_completed_onboarding", { request })),
 };
 
 /* Types */
+export type CompletedOnboardingRequest = boolean;
+
 export type Error = string;
 
 export type TtsAppConfig = {

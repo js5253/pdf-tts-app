@@ -1,6 +1,9 @@
-use std::{path::Path, fs};
+use std::{env, fs, path::Path};
 
+use anyhow::{Context, anyhow};
 use serde::{Serialize, Deserialize};
+
+use crate::{AppState, CommandResult, CompletedOnboardingRequest};
 
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 pub struct TtsJobConfig {
@@ -32,9 +35,11 @@ pub struct TtsAppConfig {
 
 impl TtsAppConfig {
     pub fn load_or_default(path: &Path) -> Self {
-        let path = Path::new("config.toml");
+        let mut path = path.to_owned();
+        path.push("config.toml");
+
         let data_dir = path.to_str().unwrap().to_string();
-        if fs::exists(path).is_ok_and(|item| item) {
+        if fs::exists(&path).is_ok_and(|item| item) {
             let config = fs::read_to_string("config.toml").unwrap();
             let config: TtsAppConfig = toml::from_str(config.as_str()).unwrap();
             // later, add code to handle json file updates 
@@ -56,3 +61,52 @@ impl TtsAppConfig {
     }
 }
 
+#[tauri::command]
+#[specta::specta]
+pub async fn get_config(state: tauri::State<'_, AppState>) -> CommandResult<TtsAppConfig> {
+    // TODO: figure out best practice for returning data based on mutex
+    let config: TtsAppConfig = {
+        let config = state.settings.lock().await;
+        config.clone()
+    };
+    Ok(config)
+}
+#[tauri::command]
+#[specta::specta]
+pub fn get_downloaded_models() -> CommandResult<Vec<String>> {
+    let mut models: Vec<String> = Vec::new();
+    let binding = env::current_dir().context("could not open tts model path")?;
+    let model_path = binding
+        .parent()
+        .ok_or(anyhow!("could not open tts model path"))?;
+
+    let dir = fs::read_dir(model_path.join("tts")).context("No TTS Model")?;
+    dir.for_each(|item| models.push(item.unwrap().file_name().to_string_lossy().to_string()));
+
+    Ok(models)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_default_model(model_name: String, state: tauri::State<'_, AppState>) -> CommandResult<()> {
+    state.settings.lock().await.voice = model_name;
+    Ok(())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_completed_onboarding(state: tauri::State<'_, AppState>) -> CommandResult<bool> {
+    let completed = state.completed_onboarding.lock().await;
+    Ok(*completed)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_completed_onboarding(
+    request: CompletedOnboardingRequest,
+    state: tauri::State<'_, AppState>,
+) -> CommandResult<()> {
+    let mut completed = state.completed_onboarding.lock().await;
+    *completed = request.0;
+    Ok(())
+}
