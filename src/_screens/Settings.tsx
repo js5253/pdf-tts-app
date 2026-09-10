@@ -26,12 +26,16 @@ const Settings = () => {
         await reloadSettings();
         await reloadTtsModels();
     }
+    const onUpdateSetting = (key: string, value: any) => {
+        setSettings(prev => ({...prev, [key]: value}))
+    }
     onMount(async () => {
         await reloadSettings();
         console.log(await appDataDir())
         setDataDir(await appDataDir())
         await reloadTtsModels()
     })
+
     return (
         <>{settings ? <>
             <div class="flex-col gap-2">
@@ -59,7 +63,7 @@ const Settings = () => {
                 <p>Currently, downloading TTS voices is not available in-app. Manually download models, unzip them, and place them into the app's location/tts folder. NOTE: only VITS TTS models are supported at the moment.</p>
                 <div class="gap-2 flex flex-row">
                     <Button className="p-2 bg-blue-400" onClick={() => { openUrl(SHERPA_MODEL_ADDRESS).then() }}>Open Sherpa-ONNX models</Button>
-                    <Button className="p-2 bg-blue-400" onClick={() => openPath(dataDir())}>Open Directory</Button>
+                    <Button className="p-2 bg-blue-400" onClick={() => openPath(dataDir() + "/tts")}>Open Directory</Button>
                     <Button onClick={reloadTtsModels}>Reload TTS Models</Button>
                 </div>
                 <ul class="flex flex-col gap-2">

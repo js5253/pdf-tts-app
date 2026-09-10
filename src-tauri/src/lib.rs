@@ -305,8 +305,15 @@ pub fn run() {
         .setup(move |app| {
             if let Ok(app_dir) = app.path().app_data_dir() {
                 if !app_dir.exists() {
+                    let model_path = &app_dir.clone().push("tts");
+                    let output_path = &app_dir.clone().push("out");
+                    
+                    fs::create_dir_all(&output_path)
+                    .expect("Failed to create output path.");
                     fs::create_dir_all(&app_dir)
-                    .expect("Failed to create App Dir.");
+                    .expect("Failed to create App Dir");
+                    fs::create_dir_all(&model_path)
+                    .expect("Failed to create Model Dir.");
                 }
             app.manage(AppState {
                 settings: Mutex::new(TtsAppConfig::load_or_default(&app_dir.as_path())),
