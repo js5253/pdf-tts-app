@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { appDataDir } from "@tauri-apps/api/path"
 import { openPath, openUrl } from "@tauri-apps/plugin-opener"
 import { createSignal, For, onMount, Show } from "solid-js";
