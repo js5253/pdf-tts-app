@@ -1,3 +1,4 @@
+output_dir = ""
 start_page = 0
 output_prefix = "page_"
 voice = "vits-piper-en_US-libritts_r-medium"

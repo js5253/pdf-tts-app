@@ -5,6 +5,7 @@ use serde::{Serialize, Deserialize};
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 pub struct TtsJobConfig {
     pub output_prefix: String,
+    pub output_dir: String,
     pub start_page: u32,
     /// sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html
     pub voice: String,
@@ -20,6 +21,7 @@ pub struct TtsJobConfig {
 #[derive(Serialize, Deserialize, Clone, specta::Type)]
 pub struct TtsAppConfig {
     /// start the narration at a certain page
+    pub output_dir: String,
     pub start_page: u32,
     pub output_prefix: String,
     pub voice: String,
@@ -29,16 +31,18 @@ pub struct TtsAppConfig {
 }
 
 impl TtsAppConfig {
-    pub fn load_or_default() -> Self {
+    pub fn load_or_default(path: &Path) -> Self {
         let path = Path::new("config.toml");
+        let data_dir = path.to_str().unwrap().to_string();
         if fs::exists(path).is_ok_and(|item| item) {
             let config = fs::read_to_string("config.toml").unwrap();
             let config: TtsAppConfig = toml::from_str(config.as_str()).unwrap();
-
+            // later, add code to handle json file updates 
             config
         } else {
             let config = TtsAppConfig {
                 start_page: 0,
+                output_dir: data_dir,
                 voice: String::from("vits-piper-en_US-libritts_r-medium"),
                 speed: 1.0,
                 combine_pages: true,

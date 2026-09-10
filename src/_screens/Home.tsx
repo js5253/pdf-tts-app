@@ -11,7 +11,8 @@ import { Button } from '../components/Button';
 const Home = () => {
     const navigate = useNavigate();
     const [isHovering, setIsHovering] = createSignal(false);
-    const [ttsConfig, setTtsConfig] = createSignal<TtsAppConfig>(); ///TODO
+    const [defaultConfig, setDefaultConfig] = createSignal<TtsAppConfig>(); ///TODO
+    const [customConfig, setCustomConfig] = createSignal<TtsAppConfig>(); ///TODO
     const [currentFilePath, setCurrentFilePath] = createSignal<string | null>(null);
     const onEvent = new Channel<TtsGenerationProgress>(); // this is probably an erroneous line
     onEvent.onmessage = (message) => {
@@ -22,12 +23,14 @@ const Home = () => {
         }
     }
     onCleanup(() => {
+
     })
     onMount(async () => {
         const config = await commands.getConfig();
         if (config.status === "error") throw new Error();
         console.log(config);
-        setTtsConfig(config.data);
+        setDefaultConfig(config.data);
+        setCustomConfig(defaultConfig);
         const appWindow = getCurrentWindow();
         await appWindow.onDragDropEvent((event) => {
             if (event.payload.type == 'over') {
@@ -35,7 +38,6 @@ const Home = () => {
             } else if (event.payload.type === 'drop') {
                 setIsHovering(false);
                 setCurrentFilePath(event.payload.paths[0]);
-                // console.log('dropped:', event.payload.paths);
             } else if (event.payload.type === 'leave') {
                 setIsHovering(false);
             }
@@ -53,8 +55,8 @@ const Home = () => {
         setCurrentFilePath(file);
     }
     async function createTTS() {
-        console.log(ttsConfig())
-        const config = ttsConfig();
+        console.log(customConfig())
+        const config = customConfig();
         if (!config || currentFilePath() === null) return;
         try {
             if (!currentFilePath()?.indexOf('.pdf') && !currentFilePath()?.indexOf('.epub') || !currentFilePath()?.indexOf('.docx')) throw new Error("invalid file type")
@@ -81,20 +83,26 @@ const Home = () => {
         <div class="backdrop-brightness-80 shadow w-[80vw] min-h-48 p-4">
             <h2>Advanced Options</h2>
             <form>
-                <input type="checkbox" name='outputDir' />
-                <label for="outputDir">Output Directory</label>
-                <input type="text" name='voice' />
-                <label for="voice">Voice</label>
-
-                <input type="number" name='speed' />
-                <label for="speed">Combine pages into one audio file</label>
-                <input type="checkbox" name='outputDir' />
-                <label for="outputDir">Output Directory</label>
-
+                <div>
+                    <input type="checkbox" name='outputPrefix' value={customConfig()?.output_prefix} />
+                    <label for="outputPrefix">Output Prefix</label>
+                </div>
+                <div>
+                    <input type="text" name='voice' value={customConfig()?.voice} />
+                    <label for="voice">Voice</label>
+                </div>
+                <div>
+                    <input type="number" name='speed' value={customConfig()?.speed} />
+                    <label for="speed">Combine pages into one audio file</label>
+                </div>
+                <div>
+                    <input type="checkbox" name='outputDir' value={customConfig()?.output_dir} />
+                    <label for="outputDir">Output Directory</label>
+                </div>
             </form>
         </div>
     </> : <div class='flex flex-col items-center outline outline-green-300 outline-10 outline-dashed outline-offset-[100px] gap-4'>
-        {/* {isHovering() && <div class='absolute bg-green-400 w-40 h-40'>Drop me here!</div>} */}
+        {isHovering() && <div class='absolute bg-green-400/40 backdrop-blur-md w-screen h-screen top-0 left-0 flex items-center justify-center'>Drop me here!</div>}
         <h1 class="text-5xl">Drag your file here</h1>
         <p>or</p>
         <Button className="bg-transparent border border-green-700 p-2 shadow-lg" onClick={() => openFilePicker().then()}>Select A File</Button>

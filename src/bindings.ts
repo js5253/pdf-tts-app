@@ -15,6 +15,7 @@ export type Error = string;
 
 export type TtsAppConfig = {
 	/**  start the narration at a certain page */
+	output_dir: string,
 	start_page: number,
 	output_prefix: string,
 	voice: string,
@@ -27,6 +28,7 @@ export type TtsGenerationProgress = { event: "inProgress"; data: number | null }
 
 export type TtsJobConfig = {
 	output_prefix: string,
+	output_dir: string,
 	start_page: number,
 	/**  sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html */
 	voice: string,

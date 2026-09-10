@@ -7,6 +7,7 @@ use pdf2image::{RenderOptionsBuilder, PDF};
 use pdf_inspector::process_pdf;
 use rayon::prelude::*;
 use serde::{Serialize};
+use tauri::Manager;
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
@@ -15,6 +16,7 @@ use std::{
     fs::{self},
     path::Path,
     time::Duration,
+    env
 };
 mod config;
 use tauri_specta::{collect_commands, Builder};
@@ -247,7 +249,7 @@ async fn run_job(
         .context("TTS Generation failed")?;
     reader.send(TtsGenerationProgress::Finished).unwrap();
 
-    let saved = audio.save("file.wav");
+    let saved = audio.save(&format!("{}{}", &job.output_dir, "/output.wav"));
     match saved {
         true => Ok(()),
         false => Err(anyhow!("failed to save audio file").into())
@@ -267,7 +269,7 @@ async fn get_config(state: tauri::State<'_, AppState>) -> Result<TtsAppConfig> {
 #[specta::specta]
 fn get_downloaded_models() -> Result<Vec<String>> {
     let mut models: Vec<String> = Vec::new();
-    let binding = std::env::current_dir().context("could not open tts model path")?;
+    let binding = env::current_dir().context("could not open tts model path")?;
     let model_path = binding
         .parent()
         .ok_or(anyhow!("could not open tts model path"))?;
@@ -300,13 +302,18 @@ pub fn run() {
         .expect("Failed to export typescript bindings");
 
     tauri::Builder::default()
-        .manage(AppState {
-            settings: Mutex::new(TtsAppConfig::load_or_default()),
+        .setup(move |app| {
+            if let Ok(app_dir) = app.path().app_data_dir() {
+                if !app_dir.exists() {
+                    fs::create_dir_all(&app_dir)
+                    .expect("Failed to create App Dir.");
+                }
+            app.manage(AppState {
+                settings: Mutex::new(TtsAppConfig::load_or_default(&app_dir.as_path())),
+            });
+            }
+            Ok(())
         })
-        // .setup(move |app| {
-        //     setup(app.handle());
-        //     Ok(())
-        // })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
