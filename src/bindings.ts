@@ -5,7 +5,7 @@ import { invoke as __TAURI_INVOKE, Channel } from "@tauri-apps/api/core";
 /** Commands */
 export const commands = {
 	setDefaultModel: (modelName: string) => typedError<null, Error>(__TAURI_INVOKE("set_default_model", { modelName })),
-	getConfig: () => typedError<TtsAppConfig, Error>(__TAURI_INVOKE("get_config")),
+		getConfig: () => typedError<TtsAppConfig, Error>(__TAURI_INVOKE("get_config")),
 	getDownloadedModels: () => typedError<string[], Error>(__TAURI_INVOKE("get_downloaded_models")),
 	runJob: (job: TtsJobConfig, progressReader: Channel<TtsGenerationProgress>) => typedError<null, Error>(__TAURI_INVOKE("run_job", { job, progressReader })),
 	getCompletedOnboarding: () => typedError<boolean, Error>(__TAURI_INVOKE("get_completed_onboarding")),
@@ -19,6 +19,7 @@ export type Error = string;
 
 export type TtsAppConfig = {
 	/**  start the narration at a certain page */
+	app_dir: string,
 	output_dir: string,
 	start_page: number,
 	output_prefix: string,

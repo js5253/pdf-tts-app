@@ -8,7 +8,7 @@ import { Settings } from "./_screens/Settings";
 import { Done } from "./_screens/Done";
 import { Toaster } from "solid-toast";
 import { Onboarding } from "./_screens/Onboarding";
-import { createResource } from "solid-js";
+import { createResource, Suspense } from "solid-js";
 import { commands } from "./bindings";
 
 
@@ -33,8 +33,8 @@ const Layout = (props) => {
     );
 };
 const App = () => {
-    const [hasCompletedOnboarding] = createResource<boolean>(commands.getCompletedOnboarding);
-    return <main class="h-screen bg-green-100 flex flex-col">
+    const [hasCompletedOnboarding] = createResource(commands.getCompletedOnboarding);
+    return <Suspense fallback={<p>Loading...</p>}><main class="h-screen bg-green-100 flex flex-col">
         <Router root={Layout}>
             {hasCompletedOnboarding() ?
                 <Route path="/" component={Home} /> :
@@ -43,5 +43,6 @@ const App = () => {
             <Route path="/settings" component={Settings} />
         </Router>
     </main>
+    </Suspense>
 }
 render(() => <App />, document.getElementById("root") as HTMLElement);

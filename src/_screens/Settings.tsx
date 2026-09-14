@@ -5,16 +5,16 @@ import { Button } from "../components/Button";
 import classNames from "classnames";
 import { commands, TtsAppConfig } from "../bindings";
 import { SHERPA_MODEL_ADDRESS } from "../util";
+import { useConfig } from "../hooks/useConfig";
 const Settings = () => {
+    const [config] = useConfig();
     const [models, {refetch: refetchModels}] = createResource<string[]>(commands.getDownloadedModels);
-    const [defaultSettings, {refetch: refetchSettings}] = createResource<string[]>(commands.getDownloadedModels);
     const [dataDir] = createResource<string>(appDataDir)
-    const [settings, setSettings] = createSignal<TtsAppConfig | null>(defaultSettings());
     const reloadTtsModels = async () => {
         await refetchModels()
     }
     const reloadSettings = async () => {
-        await refetchSettings()
+        // await refetchSettings()
     }
 
     const makeDefaultModel = async (modelName: string) => {
@@ -22,12 +22,12 @@ const Settings = () => {
         await reloadSettings();
         await reloadTtsModels();
     }
-    const onUpdateSetting = (key: string, value: any) => {
-        setSettings(prev => ({...prev, [key]: value}))
-    }
+    // const onUpdateSetting = (key: string, value: any) => {
+    //     setSettings(prev => ({...prev, [key]: value}))
+    // }
 
     return (
-        <>{settings ? <>
+        <>{config ? <>
             <div class="flex-col gap-2">
                 <h1 class="text-xl">Default Options</h1>
                 <div>
@@ -35,15 +35,15 @@ const Settings = () => {
                 <label for="sameOutputDirectory">Put the output files in the same directory as the input file.</label>
                 </div>
                 <div>
-                <input type="number" name="speed" value={settings()?.speed!} />
+                <input type="number" name="speed" value={config()?.speed!} />
                 <label for="speed">Speed</label>
                 </div>
                 <div>
-                <input type="checkbox" name="combinePages" value={String(settings()?.combine_pages)}/>
+                <input type="checkbox" name="combinePages" value={String(config()?.combine_pages)}/>
                 <label for="combinePages">Combine Pages</label>
                 </div>
                 <div>
-                <input type="number" name="speakerId" value={settings()?.speaker_id}/>
+                <input type="number" name="speakerId" value={config()?.speaker_id}/>
                 <label for="speakerId">Speaker ID</label>
                 </div>
                 <Button onClick={null}>Save</Button>
@@ -58,9 +58,9 @@ const Settings = () => {
                 </div>
                 <ul class="flex flex-col gap-2">
                     <For each={models()}>
-                        {(model) => <li data-index={model} class={classNames("shadow bg-green-50 px-4 py-2 bg-gray-200 rounded flex flex-row items-between justify-between", { "font-bold": settings().voice == model })}>{model}
+                        {(model) => <li data-index={model} class={classNames("shadow bg-green-50 px-4 py-2 bg-gray-200 rounded flex flex-row items-between justify-between", { "font-bold": config().voice == model })}>{model}
 
-                            <Show when={settings().voice !== model}><Button onClick={() => makeDefaultModel(model)}>Make Default</Button></Show></li>}
+                            <Show when={config().voice !== model}><Button onClick={() => makeDefaultModel(model)}>Make Default</Button></Show></li>}
                     </For>
                 </ul>
             <Button>Open Output Directory</Button>

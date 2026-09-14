@@ -1,11 +1,15 @@
-use anyhow::{Context, anyhow};
-use image::{ColorType, DynamicImage};
+use anyhow::{anyhow, Context};
 use glam::UVec2;
+use image::{ColorType, DynamicImage};
 use markdown_strip::strip_markdown;
+use pdf2image::{RenderOptionsBuilder, PDF};
 use pdf_inspector::process_pdf;
-use pdf2image::{PDF, RenderOptionsBuilder};
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use std::{fmt::{self, Display, Formatter}, path::Path};
+use std::{
+    collections::HashMap,
+    fmt::{self, Display, Formatter},
+    path::Path,
+};
 
 use crate::CommandResult;
 #[derive(Debug)]
@@ -19,7 +23,7 @@ impl Display for Page {
     }
 }
 
-fn ocr_region(dims: UVec2, coords: UVec2, image: &DynamicImage) -> CommandResult<String> {
+fn ocr_region(dims: UVec2, coords: UVec2, image: &DynamicImage) -> anyhow::Result<String> {
     let image_dims = UVec2::from_array([image.width(), image.height()]);
     //assert!(image.color() == ColorType::L8);
     let stride_pixel: u32 = match image.color() {
@@ -31,10 +35,9 @@ fn ocr_region(dims: UVec2, coords: UVec2, image: &DynamicImage) -> CommandResult
         _ => panic!("invalid value"),
     };
     let stride_line: u32 = image_dims.x * stride_pixel;
-    let byte_offset: usize = (coords.y * stride_line + coords.x * stride_pixel) as usize;
     assert!(UVec2::cmple(coords + dims, image_dims).all());
     let text = tesseract::ocr_from_frame(
-        &image.as_bytes()[byte_offset..],
+        image.as_bytes(),
         dims.x as i32,
         dims.y as i32,
         stride_pixel as i32,
@@ -45,24 +48,14 @@ fn ocr_region(dims: UVec2, coords: UVec2, image: &DynamicImage) -> CommandResult
     Ok(text)
 }
 
-fn text_from_image(image: &DynamicImage) -> (String, String) {
+fn text_from_image(image: &DynamicImage) -> String {
     let image_dims = UVec2::from_array([image.width(), image.height()]);
-    let old_dims = UVec2::from_array([3099, 2379]);
-    let dims = UVec2::from_array([1166, 1809]) * image_dims / old_dims; //TODO
-    let left_coords = UVec2::from_array([374, 193]) * image_dims / old_dims; //TODO
-    let right_coords = UVec2::from_array([1808, 196]) * image_dims / old_dims; //TODO
+    let coords = UVec2::ZERO;
 
-    let left_text = post_process_text(&ocr_region(dims, left_coords, image).unwrap());
-    let right_text = post_process_text(&ocr_region(dims, right_coords, image).unwrap());
-    (left_text, right_text)
-}
-fn post_process_text(string: &str) -> String {
-    string.replace("-\n", "").replace("\n", " ")
+    ocr_region(image_dims, coords, image).unwrap()
 }
 
-
-
-fn run_pdf_text(input_file: &String) -> CommandResult<Vec<Page>> {
+fn run_pdf_text(input_file: &String) -> anyhow::Result<Vec<Page>> {
     let mut p: Vec<Page> = Vec::new();
     let input_path = Path::new(&input_file);
     let pdf = process_pdf(input_path);
@@ -78,7 +71,7 @@ fn run_pdf_text(input_file: &String) -> CommandResult<Vec<Page>> {
     };
     Ok(p)
 }
-fn run_pdf_ocr(input_file: &String, start_page: u32) -> CommandResult<Vec<Page>> {
+fn run_pdf_ocr(input_file: &String, start_page: u32) -> anyhow::Result<Vec<Page>> {
     let pdf = PDF::from_file(input_file).context("Could not read PDF file")?;
     let page_images: Vec<DynamicImage> = pdf
         .render(
@@ -96,23 +89,18 @@ fn run_pdf_ocr(input_file: &String, start_page: u32) -> CommandResult<Vec<Page>>
     let pages: Vec<Page> = page_images
         .par_iter()
         .enumerate()
-        .flat_map(|(file_index, page)| {
-            let (left_text, right_text) = text_from_image(page);
-            [
-                Page {
-                    index: 2 * file_index as u32,
-                    contents: left_text,
-                },
-                Page {
-                    index: 2 * file_index as u32 + 1,
-                    contents: right_text,
-                },
-            ]
+        .map(|(idx, image)| Page {
+            index: idx as u32,
+            contents: text_from_image(image),
         })
         .collect();
     Ok(pages)
 }
-pub fn get_page_contents(input_file: &String, use_ocr: bool, start_page: u32) -> CommandResult<Vec<Page>> {
+pub fn get_page_contents(
+    input_file: &String,
+    use_ocr: bool,
+    start_page: u32,
+) -> anyhow::Result<Vec<Page>> {
     match &input_file.contains(".pdf") {
         true => match use_ocr {
             true => run_pdf_ocr(input_file, start_page),

@@ -1,14 +1,18 @@
 use std::{fs, time::Duration};
 
-use anyhow::{Context, anyhow};
+use crate::{
+    config, text_extraction::get_page_contents, AppState, CommandResult, TtsGenerationProgress,
+};
+use anyhow::{anyhow, Context};
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
 use tokio::time::Instant;
-use crate::{CommandResult, TtsGenerationProgress, config, text_extraction::get_page_contents};
+use uuid::Uuid;
 
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn run_job(
     job: config::TtsJobConfig,
+    state: tauri::State<'_, AppState>,
     progress_reader: tauri::ipc::Channel<TtsGenerationProgress>,
 ) -> CommandResult<()> {
     println!("Job Config: {:?}", job);
@@ -19,17 +23,18 @@ pub async fn run_job(
     if fs::read_dir("out").is_err() {
         fs::create_dir("out").context("Failed to create output directory")?;
     }
-    let binding = std::env::current_dir().context("Error finding TTS Model path")?;
+    let binding = state.settings.lock().await;
     let current_path = binding
+        .app_dir
         .parent()
         .ok_or(anyhow!("Error finding TTS Model path"))?;
     let current_path = &current_path.join("tts/");
     let current_path = &current_path.join(&job.voice);
     println!("{:?}", current_path);
     // let current_path = Path::new();
-    let mut dir = fs::read_dir(current_path).context("No TTS Model")?;
+    let mut dir = fs::read_dir(current_path).context("No tts model")?;
     if dir.next().is_none() {
-        return Err(anyhow!("ASAAS").into());
+        return Err(anyhow!("Could not find a TTS model").into());
     }
     let mut model_path: std::path::PathBuf = current_path.clone();
     model_path.push("en_US-libritts_r-medium.onnx");
@@ -40,13 +45,30 @@ pub async fn run_job(
     let mut data_dir = current_path.clone();
     data_dir.push("espeak-ng-data");
     dbg!(token_path.clone(), data_dir.clone());
-    // TODO: FIX THIS TO USE ACTUAL GOOD PATHS.
     let config = OfflineTtsConfig {
         model: sherpa_onnx::OfflineTtsModelConfig {
             vits: OfflineTtsVitsModelConfig {
-                model: Some(model_path.clone().into_os_string().into_string().unwrap()),
-                tokens: Some(token_path.into_os_string().into_string().unwrap()),
-                data_dir: Some(data_dir.into_os_string().into_string().unwrap()),
+                model: Some(
+                    model_path
+                        .clone()
+                        .into_os_string()
+                        .into_string()
+                        .map_err(|_| anyhow!("can't use model path"))?,
+                ),
+                tokens: Some(
+                    token_path
+                        .clone()
+                        .into_os_string()
+                        .into_string()
+                        .map_err(|_| anyhow!("can't use token path"))?,
+                ),
+                data_dir: Some(
+                    data_dir
+                        .clone()
+                        .into_os_string()
+                        .into_string()
+                        .map_err(|_| anyhow!("can't use data path"))?,
+                ),
                 noise_scale: 0.667,
                 noise_scale_w: 0.8,
                 length_scale: 1.0,
@@ -61,6 +83,7 @@ pub async fn run_job(
         ..Default::default()
     };
     let tts = OfflineTts::create(&config).ok_or(anyhow!("Could not create TTS Engine"))?;
+    let id: String = Uuid::new_v4().into();
     let gen_config = GenerationConfig {
         sid: job.speaker_id as i32,
         speed: job.speed,
@@ -86,11 +109,16 @@ pub async fn run_job(
             }),
         )
         .context("TTS Generation failed")?;
-    reader.send(TtsGenerationProgress::Finished).unwrap();
 
-    let saved = audio.save(&format!("{}{}", job.output_dir, "/output.wav"));
+    reader.send(TtsGenerationProgress::Finished).unwrap();
+    let saved = audio.save(&format!("{}/{}", job.output_dir, id));
     match saved {
-        true => Ok(()),
+        true => {
+            let mut recents = state.recent_tts.lock().await;
+            recents.push(id.to_owned());
+
+            Ok(())
+        }
         false => Err(anyhow!("failed to save audio file").into()),
     }
 }

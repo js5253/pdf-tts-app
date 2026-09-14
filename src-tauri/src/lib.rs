@@ -10,15 +10,17 @@ use std::{
 use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
 
-use tokio::{sync::Mutex};
+use tokio::sync::Mutex;
 
 use crate::config::TtsAppConfig;
 
-mod tts;
-mod text_extraction;
 mod config;
+mod models;
+mod text_extraction;
+mod tts;
+use config::{get_completed_onboarding, get_config, set_completed_onboarding, set_config};
+use models::{get_downloaded_models, set_default_model};
 use tts::run_job;
-use config::{get_downloaded_models, set_default_model, get_completed_onboarding, set_completed_onboarding, get_config};
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 
 struct CompletedOnboardingRequest(bool);
@@ -48,8 +50,20 @@ enum TtsGenerationProgress {
 struct AppState {
     settings: Mutex<TtsAppConfig>,
     completed_onboarding: Mutex<bool>,
+    recent_tts: Mutex<Vec<String>>
 }
-
+#[derive(Clone, Serialize)]
+struct ConfigChange;
+#[tauri::command]
+#[specta::specta]
+pub async fn get_recents(state: tauri::State<'_, AppState>) -> CommandResult<TtsAppConfig> {
+    // TODO: figure out best practice for returning data based on mutex
+    let config: TtsAppConfig = {
+        let config = state.settings.lock().await;
+        config.clone()
+    };
+    Ok(config)
+}
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -58,6 +72,7 @@ pub fn run() {
         .commands(collect_commands![
             set_default_model,
             get_config,
+            get_recents,
             get_downloaded_models,
             run_job,
             get_completed_onboarding,
@@ -69,6 +84,7 @@ pub fn run() {
         .expect("Failed to export typescript bindings");
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .setup(move |app| {
             if let Ok(app_dir) = app.path().app_data_dir() {
                 if !app_dir.exists() {
@@ -88,6 +104,7 @@ pub fn run() {
                 app.manage(AppState {
                     completed_onboarding: Mutex::new(false),
                     settings: Mutex::new(TtsAppConfig::load_or_default(&app_dir)),
+                    recent_tts: Mutex::new(Vec::new())
                 });
             }
             Ok(())
@@ -96,6 +113,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_config,
+            set_config,
+            get_recents,
             get_completed_onboarding,
             set_completed_onboarding,
             set_default_model,

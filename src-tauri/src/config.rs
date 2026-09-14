@@ -1,7 +1,11 @@
-use std::{env, fs, path::Path};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
 
-use anyhow::{Context, anyhow};
-use serde::{Serialize, Deserialize};
+use anyhow::{anyhow, Context};
+use serde::{Deserialize, Serialize};
+use tauri::{App, AppHandle, Emitter};
 
 use crate::{AppState, CommandResult, CompletedOnboardingRequest};
 
@@ -24,6 +28,7 @@ pub struct TtsJobConfig {
 #[derive(Serialize, Deserialize, Clone, specta::Type)]
 pub struct TtsAppConfig {
     /// start the narration at a certain page
+    pub app_dir: PathBuf,
     pub output_dir: String,
     pub start_page: u32,
     pub output_prefix: String,
@@ -33,7 +38,20 @@ pub struct TtsAppConfig {
     pub speaker_id: u32,
 }
 
+// NOTE: APP CONFIG NEEDS TO BE MANAGED MORE CLEANLY BETWEEN UPDATES.
 impl TtsAppConfig {
+    fn default(data_dir: &String, path: PathBuf) -> Self {
+        TtsAppConfig {
+            start_page: 0,
+            output_dir: data_dir.to_owned(),
+            app_dir: path.clone(),
+            voice: String::from("vits-piper-en_US-libritts_r-medium"),
+            speed: 1.0,
+            combine_pages: true,
+            speaker_id: 1,
+            output_prefix: String::from("page_"),
+        }
+    }
     pub fn load_or_default(path: &Path) -> Self {
         let mut path = path.to_owned();
         path.push("config.toml");
@@ -41,13 +59,17 @@ impl TtsAppConfig {
         let data_dir = path.to_str().unwrap().to_string();
         if fs::exists(&path).is_ok_and(|item| item) {
             let config = fs::read_to_string("config.toml").unwrap();
-            let config: TtsAppConfig = toml::from_str(config.as_str()).unwrap();
-            // later, add code to handle json file updates 
-            config
+            match toml::from_str(config.as_str()) {
+                Ok(config) => config,
+                Err(err) => {
+                    TtsAppConfig::default(&data_dir, path.to_path_buf())
+                }
+            }
         } else {
             let config = TtsAppConfig {
                 start_page: 0,
                 output_dir: data_dir,
+                app_dir: path.clone(),
                 voice: String::from("vits-piper-en_US-libritts_r-medium"),
                 speed: 1.0,
                 combine_pages: true,
@@ -73,23 +95,16 @@ pub async fn get_config(state: tauri::State<'_, AppState>) -> CommandResult<TtsA
 }
 #[tauri::command]
 #[specta::specta]
-pub fn get_downloaded_models() -> CommandResult<Vec<String>> {
-    let mut models: Vec<String> = Vec::new();
-    let binding = env::current_dir().context("could not open tts model path")?;
-    let model_path = binding
-        .parent()
-        .ok_or(anyhow!("could not open tts model path"))?;
+pub async fn set_config(
+    app: AppHandle,
+    config: TtsAppConfig,
+    state: tauri::State<'_, AppState>,
+) -> CommandResult<()> {
+    let mut state = state.settings.lock().await;
+    *state = config;
 
-    let dir = fs::read_dir(model_path.join("tts")).context("No TTS Model")?;
-    dir.for_each(|item| models.push(item.unwrap().file_name().to_string_lossy().to_string()));
+    app.emit("settings-changed", "").map_err(|_| anyhow!(""))?;
 
-    Ok(models)
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn set_default_model(model_name: String, state: tauri::State<'_, AppState>) -> CommandResult<()> {
-    state.settings.lock().await.voice = model_name;
     Ok(())
 }
 
