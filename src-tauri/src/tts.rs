@@ -1,7 +1,7 @@
 use std::{fs, time::Duration};
 
 use crate::{
-    config, text_extraction::get_page_contents, AppState, CommandResult, TtsGenerationProgress,
+    AppState, CommandResult, TtsGenerationProgress, config::{self}, recents::RecentDoc, text_extraction::get_page_contents,
 };
 use anyhow::{anyhow, Context};
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
@@ -32,7 +32,7 @@ pub async fn run_job(
     let current_path = &current_path.join(&job.voice);
     println!("{:?}", current_path);
     // let current_path = Path::new();
-    let mut dir = fs::read_dir(current_path).context("No tts model")?;
+    let mut dir = fs::read_dir(current_path).context("Could not read the TTS model directory")?;
     if dir.next().is_none() {
         return Err(anyhow!("Could not find a TTS model").into());
     }
@@ -44,7 +44,6 @@ pub async fn run_job(
 
     let mut data_dir = current_path.clone();
     data_dir.push("espeak-ng-data");
-    dbg!(token_path.clone(), data_dir.clone());
     let config = OfflineTtsConfig {
         model: sherpa_onnx::OfflineTtsModelConfig {
             vits: OfflineTtsVitsModelConfig {
@@ -110,13 +109,12 @@ pub async fn run_job(
         )
         .context("TTS Generation failed")?;
 
-    reader.send(TtsGenerationProgress::Finished).unwrap();
-    let saved = audio.save(&format!("{}/{}", job.output_dir, id));
+    let _ = reader.send(TtsGenerationProgress::Finished).map_err(|_| anyhow!("TTS Generation Finished"));
+    let file_path = format!("{}/{}", job.output_dir.to_str().ok_or(anyhow!("Failed to get output dir."))?, id.clone());
+    let saved = audio.save(file_path.as_str());
     match saved {
         true => {
-            let mut recents = state.recent_tts.lock().await;
-            recents.push(id.to_owned());
-
+            state.recent_tts.blocking_lock().push(RecentDoc {name: id.clone(), path: file_path, id });
             Ok(())
         }
         false => Err(anyhow!("failed to save audio file").into()),

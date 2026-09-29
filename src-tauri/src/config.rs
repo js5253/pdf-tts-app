@@ -12,7 +12,7 @@ use crate::{AppState, CommandResult, CompletedOnboardingRequest};
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 pub struct TtsJobConfig {
     pub output_prefix: String,
-    pub output_dir: String,
+    pub output_dir: PathBuf,
     pub start_page: u32,
     /// sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html
     pub voice: String,
@@ -29,7 +29,7 @@ pub struct TtsJobConfig {
 pub struct TtsAppConfig {
     /// start the narration at a certain page
     pub app_dir: PathBuf,
-    pub output_dir: String,
+    pub output_dir: PathBuf,
     pub start_page: u32,
     pub output_prefix: String,
     pub voice: String,
@@ -40,11 +40,11 @@ pub struct TtsAppConfig {
 
 // NOTE: APP CONFIG NEEDS TO BE MANAGED MORE CLEANLY BETWEEN UPDATES.
 impl TtsAppConfig {
-    fn default(data_dir: &String, path: PathBuf) -> Self {
+    fn default(data_dir: PathBuf, app_dir: PathBuf) -> Self {
         TtsAppConfig {
             start_page: 0,
-            output_dir: data_dir.to_owned(),
-            app_dir: path.clone(),
+            output_dir: data_dir.clone(),
+            app_dir,
             voice: String::from("vits-piper-en_US-libritts_r-medium"),
             speed: 1.0,
             combine_pages: true,
@@ -56,19 +56,18 @@ impl TtsAppConfig {
         let mut path = path.to_owned();
         path.push("config.toml");
 
-        let data_dir = path.to_str().unwrap().to_string();
         if fs::exists(&path).is_ok_and(|item| item) {
             let config = fs::read_to_string("config.toml").unwrap();
             match toml::from_str(config.as_str()) {
                 Ok(config) => config,
                 Err(err) => {
-                    TtsAppConfig::default(&data_dir, path.to_path_buf())
+                    TtsAppConfig::default(path.clone(), path)
                 }
             }
         } else {
             let config = TtsAppConfig {
                 start_page: 0,
-                output_dir: data_dir,
+                output_dir: path.clone(),
                 app_dir: path.clone(),
                 voice: String::from("vits-piper-en_US-libritts_r-medium"),
                 speed: 1.0,

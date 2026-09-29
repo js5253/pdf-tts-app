@@ -7,6 +7,9 @@ import { appDataDir } from "@tauri-apps/api/path";
 
 export const Onboarding = () => {
     const [dataDir] = createResource<string>(appDataDir)
+    const exitCompletedOnboarding = async () => {
+        await commands.setCompletedOnboarding(true);
+    }
 
     console.log("ONBOARD")
     return (
@@ -16,6 +19,7 @@ export const Onboarding = () => {
             <div class="gap-2 flex flex-row">
                 <Button className="p-2 bg-blue-400" onClick={() => openUrl(SHERPA_MODEL_ADDRESS)}>Open Sherpa-ONNX models</Button>
                 <Button className="p-2 bg-blue-400" onClick={() => openPath(dataDir() + "/tts")}>Open Directory</Button>
+                <Button className="p-2 bg-blue-400" onClick={() => openPath(dataDir() + "/tts")}>Close Screen</Button>
             </div>
 
         </div>

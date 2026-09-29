@@ -12,12 +12,13 @@ use tauri_specta::{collect_commands, Builder};
 
 use tokio::sync::Mutex;
 
-use crate::config::TtsAppConfig;
-
+use crate::config::{TtsAppConfig};
+mod recents;
 mod config;
 mod models;
 mod text_extraction;
 mod tts;
+use recents::{RecentDoc, get_recent_docs};
 use config::{get_completed_onboarding, get_config, set_completed_onboarding, set_config};
 use models::{get_downloaded_models, set_default_model};
 use tts::run_job;
@@ -50,20 +51,9 @@ enum TtsGenerationProgress {
 struct AppState {
     settings: Mutex<TtsAppConfig>,
     completed_onboarding: Mutex<bool>,
-    recent_tts: Mutex<Vec<String>>
+    recent_tts: Mutex<Vec<RecentDoc>>
 }
-#[derive(Clone, Serialize)]
-struct ConfigChange;
-#[tauri::command]
-#[specta::specta]
-pub async fn get_recents(state: tauri::State<'_, AppState>) -> CommandResult<TtsAppConfig> {
-    // TODO: figure out best practice for returning data based on mutex
-    let config: TtsAppConfig = {
-        let config = state.settings.lock().await;
-        config.clone()
-    };
-    Ok(config)
-}
+
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -72,7 +62,8 @@ pub fn run() {
         .commands(collect_commands![
             set_default_model,
             get_config,
-            get_recents,
+            set_config,
+            get_recent_docs,
             get_downloaded_models,
             run_job,
             get_completed_onboarding,
@@ -86,6 +77,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .setup(move |app| {
+            builder.mount_events(app);
             if let Ok(app_dir) = app.path().app_data_dir() {
                 if !app_dir.exists() {
                     fs::create_dir_all(&app_dir).expect("Failed to create App Dir");
@@ -114,7 +106,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_config,
             set_config,
-            get_recents,
+            get_recent_docs,
             get_completed_onboarding,
             set_completed_onboarding,
             set_default_model,

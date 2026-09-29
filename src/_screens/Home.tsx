@@ -74,11 +74,11 @@ const Home = () => {
                 <button class='border border-green-700 p-2' onClick={clearFile}>Back</button>
                 <button class='border border-green-700 p-2 bg-black text-white' onClick={createTTS}>Continue</button>
             </div>
-        </> : <div class='flex flex-col items-center justify-center outline outline-green-300 outline-10 outline-dashed outline-offset-[50px] gap-4 my-20'>
+        </> : <div class='flex flex-col items-center justify-center outline outline-green-300 outline-10 outline-dashed p-4 gap-4 my-20'>
             {isHovering() && <div class='absolute bg-green-400/40 backdrop-blur-md w-screen h-screen top-0 left-0 flex items-center justify-center'>Drop me here!</div>}
             <h1 class="text-5xl text-center">Drag your file here</h1>
             <p>or</p>
-            <Button className="bg-transparent border border-green-700 p-2 shadow-lg" onClick={openFilePicker}>Select A File</Button>
+            <Button className="bg-transparent border border-green-700 p-4 shadow-lg hover:backdrop-brightness-90 hover:text-white" onClick={openFilePicker}>Select A File</Button>
             <p class="text-gray-700 text-center">PDF, ePub, and DOCX are currently supported. Need only specific pages, regions, etc? Pre-process them in different software.</p>
         </div>}
         <RecentPanel />
