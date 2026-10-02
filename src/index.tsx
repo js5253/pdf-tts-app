@@ -9,8 +9,9 @@ import { Done } from "./_screens/Done";
 import { Toaster } from "solid-toast";
 import { Onboarding } from "./_screens/Onboarding";
 import { Suspense } from "solid-js";
-import { commands } from "./bindings";
+import { commands, HasCompletedOnboarding } from "./bindings";
 import { translateSpectaToSolidResource } from "./util";
+import { Channel } from "@tauri-apps/api/core";
 
 
 const Layout = (props) => {
@@ -34,13 +35,18 @@ const Layout = (props) => {
     );
 };
 const App = () => {
-    const [hasCompletedOnboarding] = translateSpectaToSolidResource(commands.getCompletedOnboarding)
+    const onEvent = new Channel<HasCompletedOnboarding>(); // this is probably an erroneous line
+    const [hasCompletedOnboarding, { refetch: refetchCompletedOnboarding }] = translateSpectaToSolidResource(commands.getCompletedOnboarding)
+    onEvent.onmessage = (_) => {
+        refetchCompletedOnboarding();
+    }
+
     console.log(hasCompletedOnboarding())
     return <Suspense fallback={<p>Loading...</p>}><main class="h-screen bg-green-100 flex flex-col">
         <Router root={Layout}>
             {hasCompletedOnboarding() ?
                 <Route path="/" component={Home} /> :
-                <Route path="/onboarding" component={Onboarding} />}
+                <Route path="/" component={Onboarding} />}
             <Route path="/done" component={Done} />
             <Route path="/settings" component={Settings} />
         </Router>

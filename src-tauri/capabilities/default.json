@@ -9,14 +9,31 @@
     "core:default",
     "opener:default",
     "dialog:default",
+    "fs:default",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        {
+          "path": "**/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write",
+      "allow": [
+        {
+          "path": "**/*"
+        }
+      ]
+    },
+
     {
       "identifier": "opener:allow-open-path",
       "allow": [
         {
-          "path": "/**"
+          "path": "**/*"
         }
       ]
-    },
-    "fs:default"
+    }
   ]
 }

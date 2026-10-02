@@ -1,7 +1,10 @@
 use std::{fs, time::Duration};
 
 use crate::{
-    AppState, CommandResult, TtsGenerationProgress, config::{self}, recents::RecentDoc, text_extraction::get_page_contents,
+    config::{self},
+    recents::RecentDoc,
+    text_extraction::get_page_contents,
+    AppState, CommandResult, TtsGenerationProgress,
 };
 use anyhow::{anyhow, Context};
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
@@ -109,12 +112,25 @@ pub async fn run_job(
         )
         .context("TTS Generation failed")?;
 
-    let _ = reader.send(TtsGenerationProgress::Finished).map_err(|_| anyhow!("TTS Generation Finished"));
-    let file_path = format!("{}/{}", job.output_dir.to_str().ok_or(anyhow!("Failed to get output dir."))?, id.clone());
+    let _ = reader
+        .send(TtsGenerationProgress::Finished)
+        .map_err(|_| anyhow!("TTS Generation Finished"));
+    let file_path = format!(
+        "{}/{}",
+        job.output_dir
+            .to_str()
+            .ok_or(anyhow!("Failed to get output dir."))?,
+        id.clone()
+    );
     let saved = audio.save(file_path.as_str());
+    println!("Done!!!!");
     match saved {
         true => {
-            state.recent_tts.blocking_lock().push(RecentDoc {name: id.clone(), path: file_path, id });
+            state.recent_tts.blocking_lock().push(RecentDoc {
+                name: id.clone(),
+                path: file_path,
+                id,
+            });
             Ok(())
         }
         false => Err(anyhow!("failed to save audio file").into()),

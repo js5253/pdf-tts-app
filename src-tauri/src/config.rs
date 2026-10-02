@@ -7,7 +7,7 @@ use anyhow::{anyhow, Context};
 use serde::{Deserialize, Serialize};
 use tauri::{App, AppHandle, Emitter};
 
-use crate::{AppState, CommandResult, CompletedOnboardingRequest};
+use crate::{AppState, CommandResult, CompletedOnboardingRequest, HasCompletedOnboarding};
 
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 pub struct TtsJobConfig {
@@ -40,10 +40,10 @@ pub struct TtsAppConfig {
 
 // NOTE: APP CONFIG NEEDS TO BE MANAGED MORE CLEANLY BETWEEN UPDATES.
 impl TtsAppConfig {
-    fn default(data_dir: PathBuf, app_dir: PathBuf) -> Self {
+    fn default(output_dir: PathBuf, app_dir: PathBuf) -> Self {
         TtsAppConfig {
             start_page: 0,
-            output_dir: data_dir.clone(),
+            output_dir: output_dir.clone(),
             app_dir,
             voice: String::from("vits-piper-en_US-libritts_r-medium"),
             speed: 1.0,
@@ -52,30 +52,30 @@ impl TtsAppConfig {
             output_prefix: String::from("page_"),
         }
     }
-    pub fn load_or_default(path: &Path) -> Self {
-        let mut path = path.to_owned();
-        path.push("config.toml");
+    pub fn load_or_default(app_dir: &Path) -> Self {
+        let mut config_path = app_dir.to_owned();
+        config_path.push("config.toml");
 
-        if fs::exists(&path).is_ok_and(|item| item) {
+        if fs::exists(&config_path).is_ok_and(|item| item) {
             let config = fs::read_to_string("config.toml").unwrap();
             match toml::from_str(config.as_str()) {
                 Ok(config) => config,
                 Err(err) => {
-                    TtsAppConfig::default(path.clone(), path)
+                    TtsAppConfig::default(app_dir.to_path_buf(), app_dir.to_path_buf())
                 }
             }
         } else {
             let config = TtsAppConfig {
                 start_page: 0,
-                output_dir: path.clone(),
-                app_dir: path.clone(),
+                output_dir: app_dir.to_path_buf(),
+                app_dir: app_dir.to_path_buf(),
                 voice: String::from("vits-piper-en_US-libritts_r-medium"),
                 speed: 1.0,
                 combine_pages: true,
                 speaker_id: 1,
                 output_prefix: String::from("page_"),
             };
-            fs::write(path, toml::to_string(&config).unwrap()).unwrap();
+            fs::write(config_path, toml::to_string(&config).unwrap()).unwrap();
 
             config
         }
@@ -119,8 +119,10 @@ pub async fn get_completed_onboarding(state: tauri::State<'_, AppState>) -> Comm
 pub async fn set_completed_onboarding(
     request: CompletedOnboardingRequest,
     state: tauri::State<'_, AppState>,
+    progress_reader: tauri::ipc::Channel<HasCompletedOnboarding>,
 ) -> CommandResult<()> {
     let mut completed = state.completed_onboarding.lock().await;
     *completed = request.0;
+    let _ = progress_reader.send(HasCompletedOnboarding);
     Ok(())
 }

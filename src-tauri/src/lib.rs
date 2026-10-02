@@ -1,3 +1,4 @@
+use log::LevelFilter;
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use serde::{Deserialize, Serialize};
 
@@ -12,15 +13,15 @@ use tauri_specta::{collect_commands, Builder};
 
 use tokio::sync::Mutex;
 
-use crate::config::{TtsAppConfig};
-mod recents;
+use crate::config::TtsAppConfig;
 mod config;
 mod models;
+mod recents;
 mod text_extraction;
 mod tts;
-use recents::{RecentDoc, get_recent_docs};
 use config::{get_completed_onboarding, get_config, set_completed_onboarding, set_config};
 use models::{get_downloaded_models, set_default_model};
+use recents::{get_recent_docs, RecentDoc};
 use tts::run_job;
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 
@@ -47,13 +48,15 @@ enum TtsGenerationProgress {
     InProgress(f32),
     Finished,
 }
+#[derive(Clone, Default, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+struct HasCompletedOnboarding;
 
 struct AppState {
     settings: Mutex<TtsAppConfig>,
     completed_onboarding: Mutex<bool>,
-    recent_tts: Mutex<Vec<RecentDoc>>
+    recent_tts: Mutex<Vec<RecentDoc>>,
 }
-
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -76,6 +79,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_log::Builder::new().level(LevelFilter::Warn).build())
         .setup(move |app| {
             builder.mount_events(app);
             if let Ok(app_dir) = app.path().app_data_dir() {
@@ -94,9 +98,9 @@ pub fn run() {
                     }
                 }
                 app.manage(AppState {
-                    completed_onboarding: Mutex::new(false),
+                    completed_onboarding: Mutex::new(true),
                     settings: Mutex::new(TtsAppConfig::load_or_default(&app_dir)),
-                    recent_tts: Mutex::new(Vec::new())
+                    recent_tts: Mutex::new(Vec::new()),
                 });
             }
             Ok(())
