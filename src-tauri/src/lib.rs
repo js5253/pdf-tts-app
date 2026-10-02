@@ -13,15 +13,17 @@ use tauri_specta::{collect_commands, Builder};
 
 use tokio::sync::Mutex;
 
-use crate::config::TtsAppConfig;
+use crate::{config::TtsAppConfig, model_downloader::Model};
 mod config;
 mod models;
 mod recents;
 mod text_extraction;
 mod tts;
+mod model_downloader;
 use config::{get_completed_onboarding, get_config, set_completed_onboarding, set_config};
 use models::{get_downloaded_models, set_default_model};
 use recents::{get_recent_docs, RecentDoc};
+use model_downloader::get_online_models;
 use tts::run_job;
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 
@@ -56,6 +58,7 @@ struct AppState {
     settings: Mutex<TtsAppConfig>,
     completed_onboarding: Mutex<bool>,
     recent_tts: Mutex<Vec<RecentDoc>>,
+    cached_online_models: Mutex<Vec<Model>>
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -69,6 +72,7 @@ pub fn run() {
             get_recent_docs,
             get_downloaded_models,
             run_job,
+            get_online_models,
             get_completed_onboarding,
             set_completed_onboarding
         ]);
@@ -98,9 +102,10 @@ pub fn run() {
                     }
                 }
                 app.manage(AppState {
-                    completed_onboarding: Mutex::new(true),
+                    completed_onboarding: Mutex::new(false),
                     settings: Mutex::new(TtsAppConfig::load_or_default(&app_dir)),
                     recent_tts: Mutex::new(Vec::new()),
+                    cached_online_models: Mutex::new(Vec::new())
                 });
             }
             Ok(())
@@ -109,6 +114,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_config,
+            get_online_models,
             set_config,
             get_recent_docs,
             get_completed_onboarding,

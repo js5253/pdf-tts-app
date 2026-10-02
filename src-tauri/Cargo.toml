@@ -45,6 +45,10 @@ tauri-plugin-fs = "2"
 uuid = { version = "1.26.1", features = ["v4"] }
 tauri-plugin-log = "2"
 log = "0.4.34"
+reqwest = { version = "0.13.5", features = ["blocking", "json", "stream"] }
+bzip2 = "0.6.1"
+tar = "0.4.46"
+futures = "0.3.34"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
