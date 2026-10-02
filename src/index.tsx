@@ -8,8 +8,9 @@ import { Settings } from "./_screens/Settings";
 import { Done } from "./_screens/Done";
 import { Toaster } from "solid-toast";
 import { Onboarding } from "./_screens/Onboarding";
-import { createResource, Suspense } from "solid-js";
+import { Suspense } from "solid-js";
 import { commands } from "./bindings";
+import { translateSpectaToSolidResource } from "./util";
 
 
 const Layout = (props) => {
@@ -33,7 +34,8 @@ const Layout = (props) => {
     );
 };
 const App = () => {
-    const [hasCompletedOnboarding] = createResource(commands.getCompletedOnboarding);
+    const [hasCompletedOnboarding] = translateSpectaToSolidResource(commands.getCompletedOnboarding)
+    console.log(hasCompletedOnboarding())
     return <Suspense fallback={<p>Loading...</p>}><main class="h-screen bg-green-100 flex flex-col">
         <Router root={Layout}>
             {hasCompletedOnboarding() ?

@@ -1,16 +1,16 @@
 import { Channel } from '@tauri-apps/api/core';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { open } from '@tauri-apps/plugin-dialog';
-import { createResource, createSignal, onCleanup, onMount, Suspense } from "solid-js"
+import { createSignal, onCleanup, onMount, Suspense } from "solid-js"
 import { useNavigate } from "@solidjs/router";
 import toast from 'solid-toast';
-import { commands, TtsAppConfig, TtsGenerationProgress } from '../bindings';
+import { commands, TtsGenerationProgress } from '../bindings';
 import { Button } from '../components/Button';
-import { useConfig } from '../hooks/useConfig';
 import { RecentPanel } from '../components/RecentPanel';
+import { translateSpectaToSolidResource } from '../util';
 // naive attempt at using resources and solidjs better
 const Home = () => {
-    const [config] = useConfig();
+    const [config] = translateSpectaToSolidResource(commands.getConfig)
     const navigate = useNavigate();
     const [isHovering, setIsHovering] = createSignal(false);
     const [currentFilePath, setCurrentFilePath] = createSignal<string | null>(null);
@@ -50,13 +50,13 @@ const Home = () => {
         setCurrentFilePath(file);
     }
     async function createTTS() {
-        console.log(config)
-        if (!config || currentFilePath() === null) return;
+        console.log(config())
+        if (!config() || !currentFilePath()) return;
         try {
             if (!currentFilePath()?.indexOf('.pdf') && !currentFilePath()?.indexOf('.epub') || !currentFilePath()?.indexOf('.docx')) throw new Error("invalid file type")
 
             await commands.runJob({
-                ...config,
+                ...config()!,
                 input_file: currentFilePath()!,
                 use_ocr: false
             }, onEvent);

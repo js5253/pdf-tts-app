@@ -1,0 +1,71 @@
+name: Release 
+
+on:
+  push:
+    branches:
+      - release
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    strategy: 
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'ubuntu-26.04'
+            args: ''
+            # add more platforms later on; for now, let's keep it simple.
+    runs-on: ${{matrix.platform}}
+    steps:
+      - name: Checkout Git Repo
+        uses: actions/checkout@v3
+      - name: Output Git Release
+        run: | 
+          echo ${{ github.sha }} > Release.txt 
+          && echo "RELEASE_VERSION=$(git rev-parse --short HEAD)" | tee -a $GITHUB_ENV
+      - name: Update packages
+        run: sudo apt update
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install TTS dependencies (onnxruntime +)
+        if: matrix.platform == 'ubuntu-26.04'
+        run: |
+          sudo apt update
+          sudo apt-get install -y \
+          libonnxruntime-dev \
+          libstdc++6 \
+          libleptonica-dev \
+          libtesseract-dev \
+          libglib2.0-dev \
+          libgtk-3-dev \
+          libsoup-3.0-dev \
+          libjavascriptcoregtk-4.1-dev \
+          libwebkit2gtk-4.1-dev -y
+        # later continue looking at dependencies
+      - name: Install yarn frontend dependencies
+        run: yarn --frozen-lockfile
+      - uses: tauri-apps/tauri-action@v1
+        env: 
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          tagName: app-v__VERSION__
+          releaseName: 'app-v__VERSION__'
+          releaseBody: 'Release Description...'
+          releaseDraft: true
+          prerelease: false
+          args: ${{matrix.args}}
+    #   - name: Build (Linux)
+    #     run: yarn tauri build
+    # #   - name: Run tests
+    #     # run: cargo test --verbose
+    #   - name: Upload release
+    #     uses: softprops/action-gh-release@v3
+    #     with: 
+    #       tag_name: ${{env.RELEASE_VERSION}}
+    #       files: |
+    #         Release.txt
+    #         target/release/drp

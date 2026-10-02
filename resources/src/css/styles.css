@@ -1,0 +1,116 @@
+html {
+    scroll-behavior: smooth;
+}
+
+/* @view-transition {
+    navigation: auto;
+} */
+body {
+    font-family: 'Fraunces', serif;
+    padding: 40px;
+    font-size: 1.2rem;
+    background-color: #eeefdf;
+    background-size: 40px 40px;
+    font-variation-settings:
+        "WONK" 0, "SOFT" 100;
+    background-image:
+        linear-gradient(to right, rgba(0, 0, 0, 0.1) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.1) 1px, transparent 1px);
+    border: solid white 16px;
+    box-sizing: border-box;
+
+}
+
+h1 {
+    font-size: 3.6rem;
+    font-style: italic;
+    font-weight: 600;
+}
+
+h2 {
+    color: #666;
+    font-size: 1.6rem;
+    font-weight: 500;
+}
+
+h3 {
+    font-size: 1.6rem;
+    font-weight: 400;
+}
+
+h4 {
+    font-size: 1.6rem;
+}
+
+h5 {
+    font-size: 1.2rem;
+    color: #666;
+    font-weight: 400;
+}
+.tagline {
+    color: #666;
+    font-style: italic;
+}
+nav ul {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    list-style-type: none;
+    padding: 0;
+    align-items: flex-end;
+}
+
+nav {
+    padding: 20px 0;
+    border-top: dotted gray 4px;
+    border-bottom: dotted gray 4px;
+}
+
+
+a:link {
+    color: blue;
+    transition: all 200ms;
+}
+
+a:hover {
+    font-style: italic;
+}
+
+.italics {
+    font-style: italic;
+}
+
+#page-contents {
+    /* background-color: white; */
+    border-width: 0 0 10px 0;
+    view-transition-name: page-contents-item;
+    background-color: #fbfcf2;
+    color: black;
+
+    min-height: 70vh;
+    padding: 40px;
+    margin-top: 40px;
+    transform: rotate(-1deg);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+}
+
+header {
+    padding: 40px 0;
+}
+
+.project {
+    margin-bottom: 20px;
+}
+
+@media screen and (width > 1000px) {
+    #page-contents {
+        max-width: 60vw;
+    }
+
+    nav ul {
+        flex-direction: row;
+    }
+}
+.smaller {
+    font-size: .7rem;
+}

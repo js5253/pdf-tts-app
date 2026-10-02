@@ -1,14 +1,13 @@
 import { appDataDir } from "@tauri-apps/api/path"
 import { openPath, openUrl } from "@tauri-apps/plugin-opener"
-import { createResource, createSignal, For, onMount, Show } from "solid-js";
+import { createResource, For, Show } from "solid-js";
 import { Button } from "../components/Button";
 import classNames from "classnames";
-import { commands, TtsAppConfig } from "../bindings";
-import { SHERPA_MODEL_ADDRESS } from "../util";
-import { useConfig } from "../hooks/useConfig";
+import { commands,} from "../bindings";
+import { SHERPA_MODEL_ADDRESS, translateSpectaToSolidResource } from "../util";
 const Settings = () => {
-    const [config] = useConfig();
-    const [models, {refetch: refetchModels}] = createResource<string[]>(commands.getDownloadedModels);
+    const [config] = translateSpectaToSolidResource(commands.getConfig);
+    const [models, {refetch: refetchModels}] = translateSpectaToSolidResource(commands.getDownloadedModels)
     const [dataDir] = createResource<string>(appDataDir)
     const reloadTtsModels = async () => {
         await refetchModels()
@@ -46,7 +45,7 @@ const Settings = () => {
                 <input type="number" name="speakerId" value={config()?.speaker_id}/>
                 <label for="speakerId">Speaker ID</label>
                 </div>
-                <Button onClick={null}>Save</Button>
+                <Button onClick={() => {}}>Save</Button>
             </div>
             <div class="flex flex-col gap-2">
                 <h2 class="text-xl">TTS Voice Manager</h2>
@@ -63,7 +62,7 @@ const Settings = () => {
                             <Show when={config().voice !== model}><Button onClick={() => makeDefaultModel(model)}>Make Default</Button></Show></li>}
                     </For>
                 </ul>
-            <Button>Open Output Directory</Button>
+            <Button onClick={() => openPath(dataDir())}>Open Output Directory</Button>
             </div> </> : <p></p>}
         </>
     )
