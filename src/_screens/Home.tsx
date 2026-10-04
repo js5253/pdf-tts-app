@@ -8,6 +8,7 @@ import { commands, TtsGenerationProgress } from '../bindings';
 import { Button } from '../components/Button';
 import { RecentPanel } from '../components/RecentPanel';
 import { translateSpectaToSolidResource } from '../util';
+import { SelectRegion } from './SelectRegion';
 // naive attempt at using resources and solidjs better
 const Home = () => {
     const [config] = translateSpectaToSolidResource(commands.getConfig)
@@ -69,7 +70,7 @@ const Home = () => {
     return <Suspense fallback={<></>}>
         <>{currentFilePath() ? <>
             <p>Selected File: {currentFilePath()}</p>
-            {/* <SelectRegion pdfFilePath={currentFilePath()} /> */}
+            <SelectRegion pdfFilePath={currentFilePath()!} />
             <div class="flex flex-row gap-4">
                 <button class='border border-green-700 p-2' onClick={clearFile}>Back</button>
                 <button class='border border-green-700 p-2 bg-black text-white' onClick={createTTS}>Continue</button>

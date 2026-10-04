@@ -36,10 +36,10 @@ pub async fn download_model(
 
 #[derive(Deserialize, specta::Type, Serialize, Debug)]
 pub struct Model {
-    r#type: String,
-    name: String,
-    url: String,
-    id: u32,
+    pub r#type: String,
+    pub name: String,
+    pub url: String,
+    pub id: u32,
 }
 #[derive(Deserialize)]
 struct GithubAsset {

@@ -15,7 +15,7 @@ export const Onboarding = () => {
     return (
         <div class="space-y-4">
             <h1 class="text-4xl">Hey.</h1>
-            <ProgressBar  progress={value}/>
+            <ProgressBar  progress={.6}/>
             <TTSVoiceManager />
             <hr />
             <div class="gap-2 flex flex-row">

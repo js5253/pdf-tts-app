@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use log::LevelFilter;
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use serde::{Deserialize, Serialize};
@@ -15,15 +16,15 @@ use tokio::sync::Mutex;
 
 use crate::{config::TtsAppConfig, model_downloader::Model};
 mod config;
+mod model_downloader;
 mod models;
 mod recents;
 mod text_extraction;
 mod tts;
-mod model_downloader;
 use config::{get_completed_onboarding, get_config, set_completed_onboarding, set_config};
+use model_downloader::get_online_models;
 use models::{get_downloaded_models, set_default_model};
 use recents::{get_recent_docs, RecentDoc};
-use model_downloader::get_online_models;
 use tts::run_job;
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 
@@ -58,12 +59,14 @@ struct AppState {
     settings: Mutex<TtsAppConfig>,
     completed_onboarding: Mutex<bool>,
     recent_tts: Mutex<Vec<RecentDoc>>,
-    cached_online_models: Mutex<Vec<Model>>
+    downloaded_models: Mutex<Vec<Option<Model>>>,
+    cached_online_models: Mutex<Vec<Model>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = Builder::<tauri::Wry>::new()
+    let _ = tauri::async_runtime::block_on(|| {
+            let builder = Builder::<tauri::Wry>::new()
         // Then register them (separated by a comma)
         .commands(collect_commands![
             set_default_model,
@@ -83,7 +86,11 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
-        .plugin(tauri_plugin_log::Builder::new().level(LevelFilter::Warn).build())
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(LevelFilter::Warn)
+                .build(),
+        )
         .setup(move |app| {
             builder.mount_events(app);
             if let Ok(app_dir) = app.path().app_data_dir() {
@@ -101,11 +108,31 @@ pub fn run() {
                         fs::create_dir_all(&output_path).expect("Failed to create output path.");
                     }
                 }
+                let settings = TtsAppConfig::load_or_default(&app_dir);
+                let mut models: Vec<Model> = Vec::new();
+                let model_path = settings
+                    .app_dir
+                    .parent()
+                    .ok_or(anyhow!("could not open tts model path"))?;
+                dbg!(model_path);
+
+                let dir = fs::read_dir(model_path.join("tts")).ok();
+                let models: Vec<Model> = dir.unwrap_or_else(Vec::new()).map(|item| {
+                    Model {
+                        r#type: String::new(),
+                        name: String::new(),
+                        url: String::new(),
+                        id: 1}
+                           
+                }).collect();
+
+
                 app.manage(AppState {
                     completed_onboarding: Mutex::new(false),
-                    settings: Mutex::new(TtsAppConfig::load_or_default(&app_dir)),
+                    settings: Mutex::new(settings),
                     recent_tts: Mutex::new(Vec::new()),
-                    cached_online_models: Mutex::new(Vec::new())
+                    cached_online_models: Mutex::new(Vec::new()),
+                    downloaded_models: Mutex::new(models),
                 });
             }
             Ok(())
@@ -125,4 +152,6 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+
+    });
 }
