@@ -10,6 +10,19 @@
     "opener:default",
     "dialog:default",
     "fs:default",
+    "fs:read-meta",
+    "fs:allow-open",
+    "fs:allow-write",
+    "fs:allow-read",
+    "fs:allow-rename",
+    "fs:allow-copy-file",
+    "fs:allow-mkdir",
+    "fs:allow-remove",
+    "fs:allow-stat",
+    "fs:allow-fstat",
+    "fs:allow-lstat",
+    "fs:read-all",
+    "fs:write-all",
     {
       "identifier": "fs:scope",
       "allow": [
@@ -26,9 +39,24 @@
         }
       ]
     },
-
     {
       "identifier": "opener:allow-open-path",
+      "allow": [
+        {
+          "path": "**/*"
+        }
+      ]
+    },
+        {
+      "identifier": "fs:allow-appdata-read",
+      "allow": [
+        {
+          "path": "**/*"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-appdata-write",
       "allow": [
         {
           "path": "**/*"
