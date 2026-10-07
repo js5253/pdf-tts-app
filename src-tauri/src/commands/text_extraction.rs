@@ -6,12 +6,10 @@ use pdf2image::{RenderOptionsBuilder, PDF};
 use pdf_inspector::process_pdf;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::{
-    collections::HashMap,
     fmt::{self, Display, Formatter},
     path::Path,
 };
 
-use crate::CommandResult;
 #[derive(Debug)]
 pub struct Page {
     pub index: u32,

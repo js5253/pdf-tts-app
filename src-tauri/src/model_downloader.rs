@@ -1,15 +1,12 @@
 use std::{
     fs,
-    io::{self, BufReader, ErrorKind},
     path::PathBuf,
 };
 
-use crate::{AppState, CommandResult};
+use crate::{CommandResult};
 use anyhow::anyhow;
-use bzip2::{read::BzDecoder, Decompress};
-use futures::TryStreamExt;
+use bzip2::{read::BzDecoder};
 use image::EncodableLayout;
-use rayon::slice::ParallelSlice;
 use serde::{Deserialize, Serialize};
 use tar::Archive;
 use tokio::sync::Mutex;
@@ -56,9 +53,9 @@ struct GithubAsset {
 struct GithubModelResponse {
     assets: Vec<GithubAsset>,
 }
-struct ModelDownloader;
+pub struct ModelDownloader;
 impl ModelDownloader {
-    fn load_downloaded_models(model_path: &PathBuf) -> CommandResult<Vec<Model>> {
+    pub fn load_downloaded_models(model_path: &PathBuf) -> CommandResult<Vec<Model>> {
         let mut models: Vec<Model> = Vec::new();
         let dir = fs::read_dir(model_path.join("tts")).ok();
 
@@ -78,7 +75,7 @@ impl ModelDownloader {
         }
         Ok(models)
     }
-    fn load_cached_model_list(
+    pub fn load_cached_model_list(
         cache: Mutex<Vec<Model>>,
         model_path: &PathBuf,
     ) -> CommandResult<Vec<Model>> {
@@ -92,7 +89,7 @@ impl ModelDownloader {
 
         Ok(models)
     }
-    async fn get_models(cache: Mutex<Vec<Model>>) -> CommandResult<Vec<Model>> {
+    pub async fn get_models(cache: &Mutex<Vec<Model>>) -> CommandResult<Vec<Model>> {
         let models = cache.lock().await;
 
         if models.is_empty() {
@@ -122,7 +119,7 @@ impl ModelDownloader {
             Ok(models.clone())
         }
     }
-    async fn download_model(data_path: PathBuf, model: &Model) -> CommandResult<()> {
+    pub async fn download_model(data_path: PathBuf, model: &Model) -> CommandResult<()> {
         let req = reqwest::blocking::get(model.url.as_str())
             .map_err(|_| anyhow!("Could not download model"))?;
         let archive = req.bytes().map_err(|_| anyhow!("Could not download model"))?;

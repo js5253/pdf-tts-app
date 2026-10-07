@@ -1,11 +1,11 @@
 use std::{
-    env, fs,
+    fs,
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow, Context};
+use anyhow::{anyhow};
 use serde::{Deserialize, Serialize};
-use tauri::{App, AppHandle, Emitter};
+use tauri::{AppHandle, Emitter};
 
 use crate::{AppState, CommandResult, CompletedOnboardingRequest, HasCompletedOnboarding};
 
