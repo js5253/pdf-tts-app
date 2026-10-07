@@ -1,12 +1,13 @@
 use std::{fs, time::Duration};
 
-use crate::{
+use crate::commands::{
     config::{self},
     recents::RecentDoc,
     text_extraction::get_page_contents,
-    AppState, CommandResult, TtsGenerationProgress,
 };
+use crate::{AppState, CommandResult, TtsGenerationProgress};
 use anyhow::{anyhow, Context};
+use log::info;
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
 use tokio::time::Instant;
 use uuid::Uuid;
@@ -18,7 +19,7 @@ pub async fn run_job(
     state: tauri::State<'_, AppState>,
     progress_reader: tauri::ipc::Channel<TtsGenerationProgress>,
 ) -> CommandResult<()> {
-    println!("Job Config: {:?}", job);
+    info!("Job Config: {:?}", job);
     let mut p = get_page_contents(&job.input_file, job.use_ocr, job.start_page)?;
     p.sort_by_key(|item| item.index);
 
@@ -26,8 +27,8 @@ pub async fn run_job(
     if fs::read_dir("out").is_err() {
         fs::create_dir("out").context("Failed to create output directory")?;
     }
-    let binding = state.settings.lock().await;
-    let current_path = binding
+    let settings = state.settings.lock().await;
+    let current_path = settings
         .app_dir
         .parent()
         .ok_or(anyhow!("Error finding TTS Model path"))?;

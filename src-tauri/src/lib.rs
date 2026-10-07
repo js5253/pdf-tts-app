@@ -14,18 +14,16 @@ use tauri_specta::{collect_commands, Builder};
 
 use tokio::sync::Mutex;
 
-use crate::{config::TtsAppConfig, model_downloader::Model};
-mod config;
+mod commands;
 mod model_downloader;
-mod models;
-mod recents;
-mod text_extraction;
 mod tts;
-use config::{get_completed_onboarding, get_config, set_completed_onboarding, set_config};
+use commands::config::{get_completed_onboarding, get_config, set_completed_onboarding, set_config};
 use model_downloader::get_online_models;
-use models::{get_downloaded_models, set_default_model};
-use recents::{get_recent_docs, RecentDoc};
+use commands::models::{get_downloaded_models, set_default_model};
+use commands::recents::{get_recent_docs, RecentDoc};
 use tts::run_job;
+
+use crate::{commands::{config::TtsAppConfig, models}, model_downloader::Model};
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 
 struct CompletedOnboardingRequest(bool);
@@ -59,13 +57,12 @@ struct AppState {
     settings: Mutex<TtsAppConfig>,
     completed_onboarding: Mutex<bool>,
     recent_tts: Mutex<Vec<RecentDoc>>,
-    downloaded_models: Mutex<Vec<Option<Model>>>,
+    downloaded_models: Mutex<Vec<Model>>,
     cached_online_models: Mutex<Vec<Model>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let _ = tauri::async_runtime::block_on(|| {
             let builder = Builder::<tauri::Wry>::new()
         // Then register them (separated by a comma)
         .commands(collect_commands![
@@ -114,19 +111,8 @@ pub fn run() {
                     .app_dir
                     .parent()
                     .ok_or(anyhow!("could not open tts model path"))?;
-                dbg!(model_path);
-
-                let dir = fs::read_dir(model_path.join("tts")).ok();
-                let models: Vec<Model> = dir.unwrap_or_else(Vec::new()).map(|item| {
-                    Model {
-                        r#type: String::new(),
-                        name: String::new(),
-                        url: String::new(),
-                        id: 1}
-                           
-                }).collect();
-
-
+                // recheck this to make sure passing app.state is fine
+                let models = models::get_downloaded_models(app.state());
                 app.manage(AppState {
                     completed_onboarding: Mutex::new(false),
                     settings: Mutex::new(settings),
@@ -151,7 +137,6 @@ pub fn run() {
             run_job
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
-
-    });
+        .expect("error while running tauri application")
+ 
 }

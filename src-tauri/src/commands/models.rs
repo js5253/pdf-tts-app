@@ -2,12 +2,12 @@ use std::fs;
 
 use anyhow::{Context, anyhow};
 
-use crate::{AppState, CommandResult};
+use crate::{AppState, CommandResult, model_downloader};
 
 #[tauri::command]
 #[specta::specta]
 pub async fn get_downloaded_models(state: tauri::State<'_, AppState>) -> CommandResult<Vec<String>> {
-
+    Ok(*state.downloaded_models)
 }
 
 #[tauri::command]
