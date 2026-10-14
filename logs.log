@@ -1,0 +1,96 @@
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /BAAAAA+LiberationSerif/FirstChar 0/LastChar 1/Widths [777 250]/FontDescriptor 21 0 R/ToUnicode 22 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /CAAAAA+LiberationSans-Bold/FirstChar 0/LastChar 5/Widths [750 277 666 666 556 556]/FontDescriptor 36 0 R/ToUnicode 37 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /DAAAAA+OpenSymbol/FirstChar 0/LastChar 1/Widths [365 794]/FontDescriptor 26 0 R/ToUnicode 27 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /EAAAAA+LiberationSans/FirstChar 0/LastChar 59/Widths [750 277 666 277 666 556 500 556 333 222 277 500 277 556 500 556 277 556 722 610 722 190 556 556 556 556 556 556 277 722 500 556 556 222 354 500 556 833 610 556 556 333 333 556 222 722 722 277 666 722 666 500 556 666 833 277 666 722 943 666]/FontDescriptor 31 0 R/ToUnicode 32 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /BAAAAA+LiberationSerif/FirstChar 0/LastChar 1/Widths [777 250]/FontDescriptor 21 0 R/ToUnicode 22 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /CAAAAA+LiberationSans-Bold/FirstChar 0/LastChar 5/Widths [750 277 666 666 556 556]/FontDescriptor 36 0 R/ToUnicode 37 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /DAAAAA+OpenSymbol/FirstChar 0/LastChar 1/Widths [365 794]/FontDescriptor 26 0 R/ToUnicode 27 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /EAAAAA+LiberationSans/FirstChar 0/LastChar 59/Widths [750 277 666 277 666 556 500 556 333 222 277 500 277 556 500 556 277 556 722 610 722 190 556 556 556 556 556 556 277 722 500 556 556 222 354 500 556 833 610 556 556 333 333 556 222 722 722 277 666 722 666 500 556 666 833 277 666 722 943 666]/FontDescriptor 31 0 R/ToUnicode 32 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /BAAAAA+LiberationSerif/FirstChar 0/LastChar 1/Widths [777 250]/FontDescriptor 21 0 R/ToUnicode 22 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /CAAAAA+LiberationSans-Bold/FirstChar 0/LastChar 5/Widths [750 277 666 666 556 556]/FontDescriptor 36 0 R/ToUnicode 37 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /DAAAAA+OpenSymbol/FirstChar 0/LastChar 1/Widths [365 794]/FontDescriptor 26 0 R/ToUnicode 27 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /EAAAAA+LiberationSans/FirstChar 0/LastChar 59/Widths [750 277 666 277 666 556 500 556 333 222 277 500 277 556 500 556 277 556 722 610 722 190 556 556 556 556 556 556 277 722 500 556 556 222 354 500 556 833 610 556 556 333 333 556 222 722 722 277 666 722 666 500 556 666 833 277 666 722 943 666]/FontDescriptor 31 0 R/ToUnicode 32 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /BAAAAA+LiberationSerif/FirstChar 0/LastChar 1/Widths [777 250]/FontDescriptor 21 0 R/ToUnicode 22 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /CAAAAA+LiberationSans-Bold/FirstChar 0/LastChar 5/Widths [750 277 666 666 556 556]/FontDescriptor 36 0 R/ToUnicode 37 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /DAAAAA+OpenSymbol/FirstChar 0/LastChar 1/Widths [365 794]/FontDescriptor 26 0 R/ToUnicode 27 0 R>>. Using standard encoding as a fallback!
+[2026-10-14][20:21:38][lopdf::object][WARN] Could not parse the encoding, error: ToUnicodeCMap(
+    Parse(
+        Error,
+    ),
+)
+Font: <</Type /Font/Subtype /TrueType/BaseFont /EAAAAA+LiberationSans/FirstChar 0/LastChar 59/Widths [750 277 666 277 666 556 500 556 333 222 277 500 277 556 500 556 277 556 722 610 722 190 556 556 556 556 556 556 277 722 500 556 556 222 354 500 556 833 610 556 556 333 333 556 222 722 722 277 666 722 666 500 556 666 833 277 666 722 943 666]/FontDescriptor 31 0 R/ToUnicode 32 0 R>>. Using standard encoding as a fallback!

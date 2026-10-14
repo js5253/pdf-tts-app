@@ -5,8 +5,10 @@ use serde::{Deserialize, Serialize};
 
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
+use tauri_plugin_log::{Target, TargetKind};
+use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 use std::{
-    env, fs::{self}, sync::Arc,
+    env, fmt::Display, fs::{self}, sync::Arc,
 };
 use tauri::{async_runtime, Manager};
 use tauri_specta::{collect_commands, Builder};
@@ -19,6 +21,7 @@ mod tts;
 use commands::config::{
     get_completed_onboarding, get_config, set_completed_onboarding, set_config,
 };
+use log::error;
 use commands::models::{get_download_manager_progress, get_downloaded_models, set_default_model};
 use commands::recents::{get_recent_docs, RecentDoc};
 use tts::run_job;
@@ -34,7 +37,32 @@ use crate::{
 
 struct CompletedOnboardingRequest(bool);
 
-pub type CommandResult<T> = std::result::Result<T, Error>;
+#[derive(Debug, specta::Type)]
+pub struct CommandError(pub anyhow::Error);
+
+impl Serialize for CommandError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer
+    {
+        serializer.serialize_str(&format!("{:#}", self.0))
+    }
+
+}
+pub type CommandResult<T> = std::result::Result<T, CommandError>;
+
+impl Display for CommandError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:#}", self.0)
+    }
+}
+impl<E> From<E> for CommandError
+where E: Into<anyhow::Error> {
+    fn from(err: E) -> Self {
+        Self(err.into())
+    }
+}
+
 
 #[derive(Debug, specta::Type, Serialize)]
 pub struct Error(String);
@@ -44,7 +72,7 @@ impl From<anyhow::Error> for Error {
         Self(format!("{error:#}"))
     }
 }
-#[derive(Clone, Serialize, specta::Type)]
+#[derive(Clone, Debug, Serialize, specta::Type)]
 #[serde(
     rename_all = "camelCase",
     rename_all_fields = "camelCase",
@@ -70,6 +98,11 @@ struct AppState {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    tracing_subscriber::registry()
+    .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+    .with(fmt::layer())
+    .init();
+
     let builder = Builder::<tauri::Wry>::new()
         // Then register them (separated by a comma)
         .commands(collect_commands![
@@ -93,7 +126,6 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(
             tauri_plugin_log::Builder::new()
-                .level(LevelFilter::Warn)
                 .build(),
         )
         .setup(move |app| {
@@ -149,5 +181,8 @@ pub fn run() {
             run_job
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application")
+        .expect("Error running app");
+        // .map_err(|err| {
+        //     error!("{}", err);
+        // });
 }

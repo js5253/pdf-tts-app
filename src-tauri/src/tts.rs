@@ -10,8 +10,10 @@ use anyhow::{anyhow, Context};
 use log::info;
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
 use tokio::time::Instant;
+use tracing::instrument;
 use uuid::Uuid;
 
+#[instrument(skip(state, progress_reader), err)] 
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn run_job(
@@ -85,6 +87,7 @@ pub async fn run_job(
         },
         ..Default::default()
     };
+    dbg!("{}", &config);
     let tts = OfflineTts::create(&config).ok_or(anyhow!("Could not create TTS Engine"))?;
     let id: String = Uuid::new_v4().into();
     let gen_config = GenerationConfig {
