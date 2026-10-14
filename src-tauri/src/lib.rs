@@ -1,43 +1,27 @@
 use anyhow::anyhow;
-use log::LevelFilter;
-// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 use serde::{Deserialize, Serialize};
-
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 use tauri_plugin_log::{Target, TargetKind};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
-use std::{
-    env, fmt::Display, fs::{self}, sync::Arc,
-};
-use tauri::{async_runtime, Manager};
+use std::{env, fmt::Display, fs::{self}, sync::Arc,};
+use tauri::{Manager};
 use tauri_specta::{collect_commands, Builder};
-
 use tokio::sync::Mutex;
 
-use crate::{config::TtsAppConfig, model_manager::Model};
 mod config;
 mod models;
-mod commands;
 mod recents;
 mod text_extraction;
 mod tts;
 mod model_manager;
-use config::{get_completed_onboarding, get_config, set_completed_onboarding, set_config};
-use models::{get_downloaded_models, set_default_model};
+use config::{get_completed_onboarding, get_config, set_completed_onboarding, set_config, TtsAppConfig};
+use models::{get_download_manager_progress, get_downloaded_models, set_default_model, DownloadManagerProgress};
 use recents::{get_recent_docs, RecentDoc};
-use model_manager::get_online_models;
+use model_manager::{Model};
 use tts::run_job;
 
-use crate::{
-    commands::{
-        config::TtsAppConfig,
-        models::{self, DownloadManagerProgress},
-    },
-    model_downloader::{Model, ModelDownloader},
-};
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
-
 struct CompletedOnboardingRequest(bool);
 
 #[derive(Debug, specta::Type)]

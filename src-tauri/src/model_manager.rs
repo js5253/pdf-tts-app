@@ -155,7 +155,7 @@ impl TryInto<OfflineTtsVitsModelConfig> for TTSModelConfig {
     }
 }
 
-struct ModelManager;
+pub struct ModelManager;
 impl ModelManager {
     async fn get_models() -> CommandResult<Vec<Model>> {
         let req: GithubModelResponse = reqwest::get(
