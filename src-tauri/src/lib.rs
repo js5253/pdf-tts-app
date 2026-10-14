@@ -15,15 +15,18 @@ use tauri_specta::{collect_commands, Builder};
 
 use tokio::sync::Mutex;
 
+use crate::{config::TtsAppConfig, model_manager::Model};
+mod config;
+mod models;
 mod commands;
-mod model_downloader;
+mod recents;
+mod text_extraction;
 mod tts;
-use commands::config::{
-    get_completed_onboarding, get_config, set_completed_onboarding, set_config,
-};
-use log::error;
-use commands::models::{get_download_manager_progress, get_downloaded_models, set_default_model};
-use commands::recents::{get_recent_docs, RecentDoc};
+mod model_manager;
+use config::{get_completed_onboarding, get_config, set_completed_onboarding, set_config};
+use models::{get_downloaded_models, set_default_model};
+use recents::{get_recent_docs, RecentDoc};
+use model_manager::get_online_models;
 use tts::run_job;
 
 use crate::{

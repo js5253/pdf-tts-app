@@ -1,3 +1,4 @@
+import { createResource, createSignal, ErrorBoundary } from "solid-js";
 import { commands } from "../bindings";
 import { Button } from "../components/Button"
 import { TTSVoiceManager } from "../components/TTSVoiceManager";
@@ -12,6 +13,7 @@ export const Onboarding = () => {
 
     console.log("ONBOARD")
     return (
+        <ErrorBoundary fallback={<p>Error   </p>}>
         <div class="space-y-4">
             <h1 class="text-4xl">Hey.</h1>
             <ProgressBar  progress={.6}/>
@@ -22,5 +24,6 @@ export const Onboarding = () => {
             </div>
 
         </div>
+        </ErrorBoundary>
     )
 }

@@ -12,6 +12,7 @@ use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVits
 use tokio::time::Instant;
 use tracing::instrument;
 use uuid::Uuid;
+use crate::model_manager::SupportedTTSType;
 
 #[instrument(skip(state, progress_reader), err)] 
 #[tauri::command(async)]
@@ -42,43 +43,17 @@ pub async fn run_job(
     if dir.next().is_none() {
         return Err(anyhow!("Could not find a TTS model").into());
     }
-    let mut model_path: std::path::PathBuf = current_path.clone();
-    model_path.push("en_US-libritts_r-medium.onnx");
+    // let mut model_path: std::path::PathBuf = current_path.clone();
+    // model_path.push("en_US-libritts_r-medium.onnx");
 
-    let mut token_path: std::path::PathBuf = current_path.clone();
-    token_path.push("tokens.txt");
+    // let mut token_path: std::path::PathBuf = current_path.clone();
+    // token_path.push("tokens.txt");
 
-    let mut data_dir = current_path.clone();
-    data_dir.push("espeak-ng-data");
+    // let mut data_dir = current_path.clone();
+    // data_dir.push("espeak-ng-data");
     let config = OfflineTtsConfig {
         model: sherpa_onnx::OfflineTtsModelConfig {
-            vits: OfflineTtsVitsModelConfig {
-                model: Some(
-                    model_path
-                        .clone()
-                        .into_os_string()
-                        .into_string()
-                        .map_err(|_| anyhow!("can't use model path"))?,
-                ),
-                tokens: Some(
-                    token_path
-                        .clone()
-                        .into_os_string()
-                        .into_string()
-                        .map_err(|_| anyhow!("can't use token path"))?,
-                ),
-                data_dir: Some(
-                    data_dir
-                        .clone()
-                        .into_os_string()
-                        .into_string()
-                        .map_err(|_| anyhow!("can't use data path"))?,
-                ),
-                noise_scale: 0.667,
-                noise_scale_w: 0.8,
-                length_scale: 1.0,
-                ..Default::default()
-            },
+            vits: get_model_config(&current_path, SupportedTTSType::Vits)?.try_into()?,
             num_threads: std::thread::available_parallelism()
                 .map_err(|_| anyhow!("could not get thread count for tts generation"))?
                 .get() as i32,
