@@ -1,17 +1,15 @@
-use std::{
-    fs,
-    path::PathBuf,
-};
+use std::{fs, path::PathBuf, sync::Arc};
 
-use crate::{CommandResult};
+use crate::CommandResult;
 use anyhow::anyhow;
-use bzip2::{read::BzDecoder};
+use bzip2::read::BzDecoder;
 use image::EncodableLayout;
 use serde::{Deserialize, Serialize};
 use tar::Archive;
 use tokio::sync::Mutex;
 
-const SHERPA_DOWNLOAD_URL: &str = "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/tags/tts-models";
+const SHERPA_DOWNLOAD_URL: &str =
+    "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/tags/tts-models";
 
 // #[tauri::command(async)]
 // #[specta::specta]
@@ -55,30 +53,33 @@ struct GithubModelResponse {
 }
 pub struct ModelDownloader;
 impl ModelDownloader {
-    pub fn load_downloaded_models(model_path: &PathBuf) -> CommandResult<Vec<Model>> {
-        let mut models: Vec<Model> = Vec::new();
+    pub async fn load_downloaded_models(
+        downloaded_models: Arc<Mutex<Vec<Model>>>,
+        model_path: &PathBuf,
+    ) -> CommandResult<()> {
         let dir = fs::read_dir(model_path.join("tts")).ok();
 
         // IN PROGRESS: use metadata TOML file
 
         if let Some(dir) = dir {
+            let mut downloaded_models = downloaded_models.lock().await;
             for item in dir {
-                let file_name = item.unwrap().file_name();
+                let file_name = item.map_err(|_|  anyhow!("Couldn't get model list"))?.file_name();
 
-                models.push(Model {
+                downloaded_models.push(Model {
                     r#type: String::from("vits"),
                     name: file_name.to_string_lossy().to_string(),
-                    url: todo!(),
-                    id: todo!(),
+                    url: String::new(),
+                    id: 111
                 });
             }
         }
-        Ok(models)
+        Ok(())
     }
-    pub fn load_cached_model_list(
-        cache: Mutex<Vec<Model>>,
+    pub async fn load_cached_model_list(
+        cache: Arc<Mutex<Vec<Model>>>,
         model_path: &PathBuf,
-    ) -> CommandResult<Vec<Model>> {
+    ) -> CommandResult<()> {
         let mut cache_list = model_path.clone();
         cache_list.push("metadata.toml");
         //TODO elsewhere: when loading cached model list fails, try to refetch the list...
@@ -86,21 +87,26 @@ impl ModelDownloader {
             fs::read(cache_list).map_err(|err| anyhow!("could not read cached model list"))?;
 
         let models: Vec<Model> = toml::from_slice(&downloaded_file).map_err(|_| anyhow!(""))?;
-
-        Ok(models)
+        let mut cache = cache.lock().await;
+        *cache = models;
+        Ok(())
     }
     pub async fn get_models(cache: &Mutex<Vec<Model>>) -> CommandResult<Vec<Model>> {
         let models = cache.lock().await;
 
         if models.is_empty() {
             let req: GithubModelResponse = reqwest::get(SHERPA_DOWNLOAD_URL)
-            .await
-            .map_err(|_| anyhow!("Could not download model list. Check your internet connection."))?
-            .error_for_status()
-            .map_err(|_| anyhow!("Could not download model list. Check your internet connection."))?
-            .json::<GithubModelResponse>()
-            .await
-            .map_err(|_| anyhow!("Response was not in expected GithubModelResponse"))?;
+                .await
+                .map_err(|_| {
+                    anyhow!("Could not download model list. Check your internet connection.")
+                })?
+                .error_for_status()
+                .map_err(|_| {
+                    anyhow!("Could not download model list. Check your internet connection.")
+                })?
+                .json::<GithubModelResponse>()
+                .await
+                .map_err(|_| anyhow!("Response was not in expected GithubModelResponse"))?;
 
             let models = req
                 .assets
@@ -122,7 +128,9 @@ impl ModelDownloader {
     pub async fn download_model(data_path: PathBuf, model: &Model) -> CommandResult<()> {
         let req = reqwest::blocking::get(model.url.as_str())
             .map_err(|_| anyhow!("Could not download model"))?;
-        let archive = req.bytes().map_err(|_| anyhow!("Could not download model"))?;
+        let archive = req
+            .bytes()
+            .map_err(|_| anyhow!("Could not download model"))?;
         let tar = BzDecoder::new(archive.as_bytes());
 
         let mut decoded = Archive::new(tar);

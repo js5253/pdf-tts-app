@@ -6,10 +6,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 use std::{
-    env,
-    fs::{self},
+    env, fs::{self}, sync::Arc,
 };
-use tauri::Manager;
+use tauri::{async_runtime, Manager};
 use tauri_specta::{collect_commands, Builder};
 
 use tokio::sync::Mutex;
@@ -17,12 +16,20 @@ use tokio::sync::Mutex;
 mod commands;
 mod model_downloader;
 mod tts;
-use commands::config::{get_completed_onboarding, get_config, set_completed_onboarding, set_config};
-use commands::models::{get_downloaded_models, set_default_model, get_download_manager_progress};
+use commands::config::{
+    get_completed_onboarding, get_config, set_completed_onboarding, set_config,
+};
+use commands::models::{get_download_manager_progress, get_downloaded_models, set_default_model};
 use commands::recents::{get_recent_docs, RecentDoc};
 use tts::run_job;
 
-use crate::{commands::{config::TtsAppConfig, models::{self, DownloadManagerProgress}}, model_downloader::{Model, ModelDownloader, get_models}};
+use crate::{
+    commands::{
+        config::TtsAppConfig,
+        models::{self, DownloadManagerProgress},
+    },
+    model_downloader::{Model, ModelDownloader},
+};
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 
 struct CompletedOnboardingRequest(bool);
@@ -53,18 +60,17 @@ enum TtsGenerationProgress {
 struct HasCompletedOnboarding;
 
 struct AppState {
-    settings: Mutex<TtsAppConfig>,
+    settings: Arc<Mutex<TtsAppConfig>>,
     completed_onboarding: Mutex<bool>,
     recent_tts: Mutex<Vec<RecentDoc>>,
-    downloaded_models: Mutex<Vec<Model>>,
-    cached_online_models: Mutex<Vec<Model>>,
-    download_progress: Mutex<Vec<DownloadManagerProgress>>
+    downloaded_models: Arc<Mutex<Vec<Model>>>,
+    cached_online_models: Arc<Mutex<Vec<Model>>>,
+    download_progress: Mutex<Vec<DownloadManagerProgress>>,
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
-#[tokio::main]
-pub async fn run() {
-            let builder = Builder::<tauri::Wry>::new()
+pub fn run() {
+    let builder = Builder::<tauri::Wry>::new()
         // Then register them (separated by a comma)
         .commands(collect_commands![
             get_download_manager_progress,
@@ -90,7 +96,7 @@ pub async fn run() {
                 .level(LevelFilter::Warn)
                 .build(),
         )
-        .setup(async move |app| {
+        .setup(move |app| {
             builder.mount_events(app);
             if let Ok(app_dir) = app.path().app_data_dir() {
                 if !app_dir.exists() {
@@ -108,21 +114,23 @@ pub async fn run() {
                     }
                 }
                 let settings = TtsAppConfig::load_or_default(&app_dir);
-                let mut models: Vec<Model> = Vec::new();
                 let model_path = settings
                     .app_dir
                     .parent()
                     .ok_or(anyhow!("could not open tts model path"))?;
+                let cache: Arc<Mutex<Vec<Model>>> = Arc::new(Mutex::new(Vec::new()));
+                let models = Arc::new(Mutex::new(Vec::new())); 
+
+                // let _ = futures::executor::block_on(async  {ModelDownloader::load_cached_model_list(Arc::clone(&cache), &model_path.to_path_buf()).await});
+                // let _ = futures::executor::block_on(async {ModelDownloader::load_downloaded_models(Arc::clone(&cache), &model_path.to_path_buf()).await});
                 // recheck this to make sure passing app.state is fine
-                let cache = Mutex::new(Vec::new());
-                let models = ModelDownloader::get_models(&cache).await;
                 app.manage(AppState {
                     completed_onboarding: Mutex::new(false),
-                    settings: Mutex::new(settings),
+                    settings: Arc::new(Mutex::new(settings)),
                     recent_tts: Mutex::new(Vec::new()),
-                    cached_online_models: Mutex::new(Vec::new()),
-                    downloaded_models: Mutex::new(models),
-                    download_progress: Mutex::new(Vec::new())
+                    cached_online_models: cache,
+                    downloaded_models: models,
+                    download_progress: Mutex::new(Vec::new()),
                 });
             }
             Ok(())
@@ -142,5 +150,4 @@ pub async fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application")
- 
 }

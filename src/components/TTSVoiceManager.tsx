@@ -1,4 +1,4 @@
-import { createResource, ErrorBoundary, For } from "solid-js";
+import { createResource, ErrorBoundary, For, onMount } from "solid-js";
 import { commands, HasCompletedOnboarding } from "../bindings";
 import { translateSpectaToSolidResource } from "../util";
 import { IoPlay } from "solid-icons/io";
@@ -6,18 +6,12 @@ import { Button } from "./Button";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { appDataDir, BaseDirectory } from "@tauri-apps/api/path";
 import { Channel } from "@tauri-apps/api/core";
+import { useEventContext } from "../context/EventContext";
 
 export const TTSVoiceManager = () => {
     const [models, { refetch }] = translateSpectaToSolidResource(commands.getOnlineModels);
     const [dataDir] = createResource<string>(appDataDir);
-    const onEvent = new Channel<HasCompletedOnboarding>(); // this is probably an erroneous line
-    onEvent.onmessage = async (_) => {
-        await refetch();
-    }
 
-    const exitCompletedOnboarding = async () => {
-        await commands.setCompletedOnboarding(true, onEvent);
-    }
     return (
         <ErrorBoundary fallback={<div class="flex flex-col">
             <p>You're offline. Set TTS up later, or copy your model directly to the folder.</p>
@@ -35,7 +29,6 @@ export const TTSVoiceManager = () => {
                 </ul>
                 <div>
                     <Button className="p-2 bg-blue-400" onClick={() => openPath(dataDir() + "/tts")}>Manually add TTS model</Button>
-                    <Button className="p-2 bg-green-400" onClick={() => exitCompletedOnboarding()}>Done!</Button>
                 </div>
 
             </div>

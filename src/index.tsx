@@ -8,13 +8,14 @@ import { Settings } from "./_screens/Settings";
 import { Done } from "./_screens/Done";
 import { Toaster } from "solid-toast";
 import { Onboarding } from "./_screens/Onboarding";
-import { Suspense } from "solid-js";
+import { ParentProps, Suspense } from "solid-js";
 import { commands, HasCompletedOnboarding } from "./bindings";
 import { translateSpectaToSolidResource } from "./util";
 import { Channel } from "@tauri-apps/api/core";
+import {EventContextProvider, useEventContext } from "./context/EventContext";
 
 
-const Layout = (props) => {
+const Layout = (props: ParentProps) => {
     return (
         <>
             <AppBar />
@@ -34,15 +35,22 @@ const Layout = (props) => {
         </>
     );
 };
-const App = () => {
-    const onEvent = new Channel<HasCompletedOnboarding>(); // this is probably an erroneous line
-    const [hasCompletedOnboarding, { refetch: refetchCompletedOnboarding }] = translateSpectaToSolidResource(commands.getCompletedOnboarding)
-    onEvent.onmessage = (_) => {
-        refetchCompletedOnboarding();
-    }
-
-    console.log(hasCompletedOnboarding())
+const Wrapper = () => {
     return <Suspense fallback={<p>Loading...</p>}><main class="h-screen bg-green-100 flex flex-col">
+        <EventContextProvider>
+            <App />
+        </EventContextProvider>
+    </main>
+    </Suspense>
+}
+
+const App = () => {
+    const [hasCompletedOnboarding, { refetch: refetchCompletedOnboarding }] = translateSpectaToSolidResource(commands.getCompletedOnboarding)
+        const {onHasCompletedOnboarding} = useEventContext();
+        onHasCompletedOnboarding.onmessage = () => {
+            refetchCompletedOnboarding();
+        }
+    return (
         <Router root={Layout}>
             {hasCompletedOnboarding() ?
                 <Route path="/" component={Home} /> :
@@ -50,7 +58,7 @@ const App = () => {
             <Route path="/done" component={Done} />
             <Route path="/settings" component={Settings} />
         </Router>
-    </main>
-    </Suspense>
+
+    )
 }
-render(() => <App />, document.getElementById("root") as HTMLElement);
+render(() => <Wrapper />, document.getElementById("root") as HTMLElement);

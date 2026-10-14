@@ -1,15 +1,14 @@
-import { createResource, createSignal } from "solid-js";
 import { commands } from "../bindings";
 import { Button } from "../components/Button"
-import { SHERPA_MODEL_ADDRESS, translateSpectaToSolidResource } from "../util";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
-import { appDataDir, BaseDirectory } from "@tauri-apps/api/path";
-import { watch } from "@tauri-apps/plugin-fs";
 import { TTSVoiceManager } from "../components/TTSVoiceManager";
 import { ProgressBar } from "../components/ProgressBar";
+import { useEventContext } from "../context/EventContext";
 
 export const Onboarding = () => {
-
+    const {onHasCompletedOnboarding} = useEventContext();
+    const onClick = async () => {
+        await commands.setCompletedOnboarding(true, onHasCompletedOnboarding);
+    }
 
     console.log("ONBOARD")
     return (
@@ -19,6 +18,7 @@ export const Onboarding = () => {
             <TTSVoiceManager />
             <hr />
             <div class="gap-2 flex flex-row">
+                <Button onClick={onClick}>Next</Button>
             </div>
 
         </div>

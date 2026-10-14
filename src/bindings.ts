@@ -4,19 +4,25 @@ import { invoke as __TAURI_INVOKE, Channel } from "@tauri-apps/api/core";
 
 /** Commands */
 export const commands = {
+	getDownloadManagerProgress: () => typedError<DownloadManagerProgress[], Error>(__TAURI_INVOKE("get_download_manager_progress")),
 	setDefaultModel: (modelName: string) => typedError<null, Error>(__TAURI_INVOKE("set_default_model", { modelName })),
 	getConfig: () => typedError<TtsAppConfig, Error>(__TAURI_INVOKE("get_config")),
 	setConfig: (config: TtsAppConfig) => typedError<null, Error>(__TAURI_INVOKE("set_config", { config })),
 	getRecentDocs: () => typedError<RecentDoc[], Error>(__TAURI_INVOKE("get_recent_docs")),
-	getDownloadedModels: () => typedError<string[], Error>(__TAURI_INVOKE("get_downloaded_models")),
+	getDownloadedModels: () => typedError<Model[], Error>(__TAURI_INVOKE("get_downloaded_models")),
 	runJob: (job: TtsJobConfig, progressReader: Channel<TtsGenerationProgress>) => typedError<null, Error>(__TAURI_INVOKE("run_job", { job, progressReader })),
-	getOnlineModels: () => typedError<Model[], Error>(__TAURI_INVOKE("get_online_models")),
 	getCompletedOnboarding: () => typedError<boolean, Error>(__TAURI_INVOKE("get_completed_onboarding")),
-	setCompletedOnboarding: (request: CompletedOnboardingRequest, progressReader: Channel<HasCompletedOnboarding>) => typedError<null, Error>(__TAURI_INVOKE("set_completed_onboarding", { request, progressReader })),
+	setCompletedOnboarding: (request: CompletedOnboardingRequest, onboardingCh: Channel<HasCompletedOnboarding>) => typedError<null, Error>(__TAURI_INVOKE("set_completed_onboarding", { request, onboardingCh })),
 };
 
 /* Types */
 export type CompletedOnboardingRequest = boolean;
+
+export type DownloadManagerProgress = {
+	name: string,
+	progress: number | null,
+	id: string,
+};
 
 export type Error = string;
 

@@ -109,7 +109,8 @@ pub async fn set_config(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_completed_onboarding(state: tauri::State<'_, AppState>) -> CommandResult<bool> {
+pub async fn get_completed_onboarding(state: tauri::State<'_, AppState>,
+) -> CommandResult<bool> {
     let completed = state.completed_onboarding.lock().await;
     Ok(*completed)
 }
@@ -119,10 +120,9 @@ pub async fn get_completed_onboarding(state: tauri::State<'_, AppState>) -> Comm
 pub async fn set_completed_onboarding(
     request: CompletedOnboardingRequest,
     state: tauri::State<'_, AppState>,
-    progress_reader: tauri::ipc::Channel<HasCompletedOnboarding>,
-) -> CommandResult<()> {
+    onboarding_ch: tauri::ipc::Channel<HasCompletedOnboarding>) -> CommandResult<()> {
     let mut completed = state.completed_onboarding.lock().await;
     *completed = request.0;
-    let _ = progress_reader.send(HasCompletedOnboarding);
+    let _ = onboarding_ch.send(HasCompletedOnboarding);
     Ok(())
 }
