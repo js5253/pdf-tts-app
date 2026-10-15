@@ -1,14 +1,12 @@
 use std::{fs, time::Duration};
 
-use crate::commands::{
-    config::{self},
-    recents::RecentDoc,
-    text_extraction::get_page_contents,
+use crate::{
+    config::{self}, model_manager::get_model_config, recents::RecentDoc, text_extraction::get_page_contents,
 };
 use crate::{AppState, CommandResult, TtsGenerationProgress};
 use anyhow::{anyhow, Context};
 use log::info;
-use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsVitsModelConfig};
+use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig};
 use tokio::time::Instant;
 use tracing::instrument;
 use uuid::Uuid;
@@ -53,7 +51,7 @@ pub async fn run_job(
     // data_dir.push("espeak-ng-data");
     let config = OfflineTtsConfig {
         model: sherpa_onnx::OfflineTtsModelConfig {
-            vits: get_model_config(&current_path, SupportedTTSType::Vits)?.try_into()?,
+            vits: get_model_config(&current_path, SupportedTTSType::Vits)?.try_into().map_err(|_| anyhow!("Failed to get model config"))?,
             num_threads: std::thread::available_parallelism()
                 .map_err(|_| anyhow!("could not get thread count for tts generation"))?
                 .get() as i32,

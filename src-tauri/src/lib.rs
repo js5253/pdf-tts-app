@@ -25,14 +25,14 @@ use tts::run_job;
 struct CompletedOnboardingRequest(bool);
 
 #[derive(Debug, specta::Type)]
-pub struct CommandError(pub anyhow::Error);
+pub struct CommandError(pub Error);
 
 impl Serialize for CommandError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer
     {
-        serializer.serialize_str(&format!("{:#}", self.0))
+        serializer.serialize_str(&format!("{:?}", self.0))
     }
 
 }
@@ -40,13 +40,13 @@ pub type CommandResult<T> = std::result::Result<T, CommandError>;
 
 impl Display for CommandError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:#}", self.0)
+        write!(f, "{:?}", self.0)
     }
 }
 impl<E> From<E> for CommandError
 where E: Into<anyhow::Error> {
     fn from(err: E) -> Self {
-        Self(err.into())
+        Self(err.into().into())
     }
 }
 
@@ -110,11 +110,11 @@ pub fn run() {
         .expect("Failed to export typescript bindings");
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_fs::init())
-        .plugin(
-            tauri_plugin_log::Builder::new()
-                .build(),
-        )
+        // .plugin(tauri_plugin_fs::init())
+        // .plugin(
+        //     tauri_plugin_log::Builder::new()
+        //         .build(),
+        // )
         .setup(move |app| {
             builder.mount_events(app);
             if let Ok(app_dir) = app.path().app_data_dir() {

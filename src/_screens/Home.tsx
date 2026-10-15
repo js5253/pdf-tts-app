@@ -9,11 +9,14 @@ import { Button } from '../components/Button';
 import { RecentPanel } from '../components/RecentPanel';
 import { translateSpectaToSolidResource } from '../util';
 import { SelectRegion } from './SelectRegion';
+import { readFile } from "@tauri-apps/plugin-fs";
 // naive attempt at using resources and solidjs better
 const Home = () => {
     const [config] = translateSpectaToSolidResource(commands.getConfig)
     const navigate = useNavigate();
     const [isHovering, setIsHovering] = createSignal(false);
+    const [file, setFile] = createSignal(null);
+
     const [currentFilePath, setCurrentFilePath] = createSignal<string | null>(null);
     const onEvent = new Channel<TtsGenerationProgress>(); // this is probably an erroneous line
     onEvent.onmessage = (message) => {
@@ -28,11 +31,15 @@ const Home = () => {
     })
     onMount(async () => {
         const appWindow = getCurrentWindow();
-        await appWindow.onDragDropEvent((event) => {
+        await appWindow.onDragDropEvent(async (event) => {
             if (event.payload.type == 'over') {
                 setIsHovering(true);
             } else if (event.payload.type === 'drop') {
                 setIsHovering(false);
+                const contents = await readFile(event.payload.paths[0])
+                const blob = new Blob([contents], { type: "application/pdf" });
+                const localUrl = URL.createObjectURL(blob);
+                setFile(blob);
                 setCurrentFilePath(event.payload.paths[0]);
             } else if (event.payload.type === 'leave') {
                 setIsHovering(false);
@@ -69,7 +76,6 @@ const Home = () => {
 
     return <Suspense fallback={<></>}>
         <>{currentFilePath() ? <>
-            <p>Selected File: {currentFilePath()}</p>
             <SelectRegion pdfFilePath={currentFilePath()!} />
             <div class="flex flex-row gap-4">
                 <button class='border border-green-700 p-2' onClick={clearFile}>Back</button>
@@ -82,7 +88,7 @@ const Home = () => {
             <Button className="bg-transparent border border-green-700 p-4 shadow-lg hover:backdrop-brightness-90 hover:text-white" onClick={openFilePicker}>Select A File</Button>
             <p class="text-gray-700 text-center">PDF, ePub, and DOCX are currently supported. Need only specific pages, regions, etc? Pre-process them in different software.</p>
         </div>}
-        <RecentPanel />
+            <RecentPanel />
         </>
     </Suspense>
 }

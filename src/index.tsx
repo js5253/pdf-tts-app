@@ -13,7 +13,7 @@ import { commands, HasCompletedOnboarding } from "./bindings";
 import { translateSpectaToSolidResource } from "./util";
 import { Channel } from "@tauri-apps/api/core";
 import {EventContextProvider, useEventContext } from "./context/EventContext";
-
+import "@pdfslick/solid/dist/pdf_viewer.css";
 
 const Layout = (props: ParentProps) => {
     return (

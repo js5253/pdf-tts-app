@@ -8,6 +8,7 @@ export const SelectRegion = ({pdfFilePath}: PdfPathProps) => {
         // here, add a component where we can pick the region
         // it can be as simple as using one page
 
-        <div><PDFRegionPicker pdfFilePath={pdfFilePath} /></div>
+        <div>
+            <PDFRegionPicker pdfFilePath={pdfFilePath} /></div>
     )
 }
