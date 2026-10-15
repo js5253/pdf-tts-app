@@ -3,10 +3,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 use std::{
-    env,
-    fmt::Display,
-    fs::{self},
-    sync::Arc,
+    env, fmt::Display, fs::{self}, sync::{Arc, OnceLock},
 };
 use tauri::Manager;
 use tauri_plugin_log::{Target, TargetKind};
@@ -31,6 +28,8 @@ use models::{
 };
 use recents::{get_recent_docs, RecentDoc};
 use tts::run_job;
+
+use crate::model_manager::get_online_models;
 
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 struct CompletedOnboardingRequest(bool);
@@ -92,10 +91,12 @@ struct AppState {
     downloaded_models: Arc<Mutex<Vec<Model>>>,
     cached_online_models: Arc<Mutex<Vec<Model>>>,
     download_progress: Arc<Mutex<Vec<DownloadManagerProgress>>>,
+    gh_access_token: &'static str
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    let gh_access_token = dotenvy_macro::dotenv!("GH_ACCESS_TOKEN"); 
     tracing_subscriber::registry()
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
         .with(fmt::layer())
@@ -111,7 +112,7 @@ pub fn run() {
             get_recent_docs,
             get_downloaded_models,
             run_job,
-            // get_online_models,
+            get_online_models,
             get_completed_onboarding,
             set_completed_onboarding
         ]);
@@ -163,6 +164,7 @@ pub fn run() {
                 cached_online_models: cache,
                 downloaded_models: models,
                 download_progress: Arc::new(Mutex::new(Vec::new())),
+                gh_access_token
             });
             Ok(())
         })
@@ -170,7 +172,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             get_config,
-            // get_online_models,
+            get_online_models,
             set_config,
             get_recent_docs,
             get_completed_onboarding,

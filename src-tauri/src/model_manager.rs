@@ -1,8 +1,10 @@
 use crate::{model_manager::SupportedTTSType::Vits, AppState, CommandResult, Error};
-use anyhow::anyhow;
+use anyhow::{Context, anyhow};
 use bzip2::{read::BzDecoder, Decompress};
 use futures::TryStreamExt;
 use image::EncodableLayout;
+use reqwest::{Client, RequestBuilder};
+use tracing::{error, info, instrument};
 use rayon::slice::ParallelSlice;
 use serde::{Deserialize, Serialize};
 use sherpa_onnx::{OfflineTtsKokoroModelConfig, OfflineTtsMatchaModelConfig, OfflineTtsVitsModelConfig};
@@ -11,10 +13,14 @@ use std::{
     path::{Path, PathBuf},
 };
 use tar::Archive;
+
+const SHERPA_URL: &str = "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/tags/tts-models";
+
 #[tauri::command(async)]
 #[specta::specta]
+#[instrument(skip(state))]
 pub async fn get_online_models(state: tauri::State<'_, AppState>) -> CommandResult<Vec<Model>> {
-    ModelManager::get_models().await
+    ModelManager::get_models(state.gh_access_token).await
 }
 #[tauri::command(async)]
 #[specta::specta]
@@ -232,20 +238,22 @@ impl TryInto<OfflineTtsKokoroModelConfig> for TTSModelConfig {
 
 pub struct ModelManager;
 impl ModelManager {
-    async fn get_models() -> CommandResult<Vec<Model>> {
-        let req: GithubModelResponse = reqwest::get(
-            "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/tags/tts-models",
-        )
+    #[instrument] 
+    async fn get_models(token: &str) -> CommandResult<Vec<Model>> {
+        info!("Getting online models w/ token... {}", token);
+        let client = Client::new();
+
+        let req: GithubModelResponse = client
+        .get(SHERPA_URL)
+        .bearer_auth(token)
+        .send()
         .await
-        .map_err(|_| anyhow!("Could not download model list. Check your internet connection. A"))?
+        .context("Could not download model list")?
         .error_for_status()
-        .map_err(|_| anyhow!("Could not download model list. Check your internet connection. B"))?
+        .context("Could not download model list. Check your internet connection. ")?
         .json::<GithubModelResponse>()
         .await
-        .map_err(|err| {
-            dbg!(err);
-            anyhow!("Response was not in expected GithubModelResponse")
-        })?;
+        .context("Failed to deserialize GitHub model response.")?;
 
         let models = req
             .assets

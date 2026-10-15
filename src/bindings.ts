@@ -11,6 +11,7 @@ export const commands = {
 	getRecentDocs: () => typedError<RecentDoc[], CommandError>(__TAURI_INVOKE("get_recent_docs")),
 	getDownloadedModels: () => typedError<Model[], CommandError>(__TAURI_INVOKE("get_downloaded_models")),
 	runJob: (job: TtsJobConfig, progressReader: Channel<TtsGenerationProgress>) => typedError<null, CommandError>(__TAURI_INVOKE("run_job", { job, progressReader })),
+	getOnlineModels: () => typedError<Model[], CommandError>(__TAURI_INVOKE("get_online_models")),
 	getCompletedOnboarding: () => typedError<boolean, CommandError>(__TAURI_INVOKE("get_completed_onboarding")),
 	setCompletedOnboarding: (request: CompletedOnboardingRequest, onboardingCh: Channel<HasCompletedOnboarding>) => typedError<null, CommandError>(__TAURI_INVOKE("set_completed_onboarding", { request, onboardingCh })),
 };

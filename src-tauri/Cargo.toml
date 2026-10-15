@@ -52,6 +52,8 @@ futures = "0.3.34"
 env_logger = "0.11.11"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+dotenvy = "0.15.7"
+dotenvy_macro = "0.15.7"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
