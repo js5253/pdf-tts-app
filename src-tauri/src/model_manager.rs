@@ -34,7 +34,7 @@ pub async fn download_model(
     Ok(())
 }
 
-#[derive(Deserialize, specta::Type, Serialize, Debug)]
+#[derive(Deserialize, specta::Type, Serialize, Debug, Clone)]
 pub struct Model {
     r#type: String,
     name: String,

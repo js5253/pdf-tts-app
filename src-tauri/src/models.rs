@@ -1,9 +1,6 @@
-use std::fs;
-
-use anyhow::{Context, anyhow};
 use serde::{Deserialize, Serialize};
 
-use crate::{AppState, CommandResult, model_downloader::{self, Model}};
+use crate::{AppState, CommandResult, Model};
 
 #[derive(Deserialize, Serialize, specta::Type, Debug, Clone)]
 pub struct DownloadManagerProgress {

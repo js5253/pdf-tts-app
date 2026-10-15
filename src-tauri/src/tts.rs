@@ -37,7 +37,7 @@ pub async fn run_job(
     let current_path = &current_path.join(&job.voice);
     println!("{:?}", current_path);
     // let current_path = Path::new();
-    let mut dir = fs::read_dir(current_path).context("Could not read the TTS model directory")?;
+    let mut dir = fs::read_dir(current_path).context(format!("Could not read the TTS model directory: {:?}", current_path))?;
     if dir.next().is_none() {
         return Err(anyhow!("Could not find a TTS model").into());
     }
@@ -51,7 +51,7 @@ pub async fn run_job(
     // data_dir.push("espeak-ng-data");
     let config = OfflineTtsConfig {
         model: sherpa_onnx::OfflineTtsModelConfig {
-            vits: get_model_config(&current_path, SupportedTTSType::Vits)?.try_into().map_err(|_| anyhow!("Failed to get model config"))?,
+            vits: get_model_config(current_path, SupportedTTSType::Vits)?.try_into().map_err(|_| anyhow!("Failed to get model config"))?,
             num_threads: std::thread::available_parallelism()
                 .map_err(|_| anyhow!("could not get thread count for tts generation"))?
                 .get() as i32,
