@@ -5,7 +5,7 @@ use futures::TryStreamExt;
 use image::EncodableLayout;
 use rayon::slice::ParallelSlice;
 use serde::{Deserialize, Serialize};
-use sherpa_onnx::OfflineTtsVitsModelConfig;
+use sherpa_onnx::{OfflineTtsKokoroModelConfig, OfflineTtsMatchaModelConfig, OfflineTtsVitsModelConfig};
 use std::{
     io::{self, BufReader, ErrorKind},
     path::{Path, PathBuf},
@@ -81,6 +81,26 @@ pub struct TTSModelConfig {
 
 // let mut data_dir = current_path.clone();
 // data_dir.push("espeak-ng-data");
+impl TryInto<OfflineTtsVitsModelConfig> for TTSModelConfig {
+    type Error = crate::Error;
+
+    fn try_into(self) -> Result<OfflineTtsVitsModelConfig, Self::Error> {
+        if self.r#type != SupportedTTSType::Vits {
+            return Err(Error("Invalid TTS type for VITS config".into()));
+        }
+        Ok(OfflineTtsVitsModelConfig {
+            model: self.model,
+            lexicon: self.lexicon,
+            tokens: self.tokens,
+            data_dir: self.data_dir,
+            noise_scale: self.noise_scale,
+            noise_scale_w: self.noise_scale_w,
+            length_scale: self.length_scale,
+            dict_dir: self.dict_dir,
+            ..Default::default()
+        })
+    }
+}
 
 pub fn get_model_config(
     base_dir: &Path,
@@ -88,70 +108,125 @@ pub fn get_model_config(
 ) -> CommandResult<TTSModelConfig> {
     let base_dir = base_dir.to_path_buf();
 
-    let mut model_path: std::path::PathBuf = base_dir.clone();
-    model_path.push("en_US-libritts_r-medium.onnx");
-
-    let mut token_path: std::path::PathBuf = base_dir.clone();
+    let mut token_path = base_dir.clone();
     token_path.push("tokens.txt");
 
-    let mut data_dir: std::path::PathBuf = base_dir.clone();
+    let mut data_dir = base_dir.clone();
     data_dir.push("espeak-ng-data");
 
     match r#type {
-        SupportedTTSType::Vits => Ok(TTSModelConfig {
-            model: Some(
-                model_path
-                    .clone()
-                    .into_os_string()
-                    .into_string()
-                    .map_err(|_| anyhow!("can't use model path"))?,
-            ),
-            tokens: Some(
-                token_path
-                    .clone()
-                    .into_os_string()
-                    .into_string()
-                    .map_err(|_| anyhow!("can't use token path"))?,
-            ),
-            data_dir: Some(
-                data_dir
-                    .clone()
-                    .into_os_string()
-                    .into_string()
-                    .map_err(|_| anyhow!("can't use data path"))?,
-            ),
-            noise_scale: 0.667,
-            noise_scale_w: 0.8,
-            length_scale: 1.0,
-            dict_dir: None,
-            lexicon: None,
-            r#type: SupportedTTSType::Vits,
-        }),
-        SupportedTTSType::Kitten => todo!(),
-        SupportedTTSType::Matcha => todo!(),
-        SupportedTTSType::Kokoro => todo!(),
-        SupportedTTSType::Supertonic => todo!(),
-    }
-}
-impl TryInto<OfflineTtsVitsModelConfig> for TTSModelConfig {
-    type Error = crate::Error;
-
-    fn try_into(self) -> Result<OfflineTtsVitsModelConfig, Self::Error> {
-        if self.r#type != SupportedTTSType::Vits {
-            Err(Error("AASA".into()))
-        } else {
-            Ok(OfflineTtsVitsModelConfig {
-                model: self.model,
-                lexicon: self.lexicon,
-                tokens: self.tokens,
-                data_dir: self.data_dir,
-                noise_scale: self.noise_scale,
-                noise_scale_w: self.noise_scale_w,
-                length_scale: self.length_scale,
-                dict_dir: self.dict_dir,
-                ..Default::default()
+        SupportedTTSType::Vits => {
+            let mut model_path = base_dir.clone();
+            model_path.push("en_US-libritts_r-medium.onnx");
+            Ok(TTSModelConfig {
+                model: Some(model_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                tokens: Some(token_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                data_dir: Some(data_dir.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                noise_scale: 0.667,
+                noise_scale_w: 0.8,
+                length_scale: 1.0,
+                dict_dir: None,
+                lexicon: None,
+                r#type: SupportedTTSType::Vits,
             })
         }
+        SupportedTTSType::Matcha => {
+            // Matcha requires an acoustic model and a vocoder (e.g., Vocos)
+            let mut acoustic_path = base_dir.clone();
+            acoustic_path.push("model.onnx");
+            let mut vocoder_path = base_dir.clone();
+            vocoder_path.push("vocos.onnx");
+
+            Ok(TTSModelConfig {
+                model: Some(acoustic_path.into_string().map_err(|_|  anyhow!("Failed to get acoustic path"))?), // or map to acoustic field
+                tokens: Some(token_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                data_dir: Some(data_dir.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                noise_scale: 0.667,
+                noise_scale_w: 0.8,
+                length_scale: 1.0,
+                dict_dir: None,
+                lexicon: None,
+                r#type: SupportedTTSType::Matcha,
+            })
+        }
+        SupportedTTSType::Kokoro => {
+            let mut model_path = base_dir.clone();
+            model_path.push("model.onnx");
+            Ok(TTSModelConfig {
+                model: Some(model_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                tokens: Some(token_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                data_dir: Some(data_dir.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                noise_scale: 0.667,
+                noise_scale_w: 0.8,
+                length_scale: 1.0,
+                dict_dir: None,
+                lexicon: None,
+                r#type: SupportedTTSType::Kokoro,
+            })
+        }
+        SupportedTTSType::Kitten => {
+            let mut model_path = base_dir.clone();
+            model_path.push("model.onnx");
+            Ok(TTSModelConfig {
+                model: Some(model_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                tokens: Some(token_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                data_dir: Some(data_dir.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                noise_scale: 0.667,
+                noise_scale_w: 0.8,
+                length_scale: 1.0,
+                dict_dir: None,
+                lexicon: None,
+                r#type: SupportedTTSType::Kitten,
+            })
+        }
+        SupportedTTSType::Supertonic => {
+            let mut model_path = base_dir.clone();
+            model_path.push("model.onnx");
+            Ok(TTSModelConfig {
+                model: Some(model_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                tokens: Some(token_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                data_dir: Some(data_dir.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                noise_scale: 0.667,
+                noise_scale_w: 0.8,
+                length_scale: 1.0,
+                dict_dir: None,
+                lexicon: None,
+                r#type: SupportedTTSType::Supertonic,
+            })
+        }
+    }
+}
+
+impl TryInto<OfflineTtsMatchaModelConfig> for TTSModelConfig {
+    type Error = crate::Error;
+    fn try_into(self) -> Result<OfflineTtsMatchaModelConfig, Self::Error> {
+        if self.r#type != SupportedTTSType::Matcha {
+            return Err(Error("Expected Matcha TTS type".into()));
+        }
+        Ok(OfflineTtsMatchaModelConfig {
+            acoustic_model: self.model,
+            tokens: self.tokens,
+            data_dir: self.data_dir,
+            lexicon: self.lexicon,
+            dict_dir: self.dict_dir,
+            ..Default::default()
+        })
+    }
+}
+
+impl TryInto<OfflineTtsKokoroModelConfig> for TTSModelConfig {
+    type Error = crate::Error;
+    fn try_into(self) -> Result<OfflineTtsKokoroModelConfig, Self::Error> {
+        if self.r#type != SupportedTTSType::Kokoro {
+            return Err(Error("Expected Kokoro TTS type".into()));
+        }
+        Ok(OfflineTtsKokoroModelConfig {
+            model: self.model,
+            tokens: self.tokens,
+            data_dir: self.data_dir,
+            lexicon: self.lexicon,
+            ..Default::default()
+        })
     }
 }
 
