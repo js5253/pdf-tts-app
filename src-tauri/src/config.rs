@@ -6,6 +6,7 @@ use std::{
 use anyhow::{anyhow};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
+use tracing::info;
 
 use crate::{AppState, CommandResult, CompletedOnboardingRequest, HasCompletedOnboarding};
 
@@ -61,6 +62,7 @@ impl TtsAppConfig {
             match toml::from_str(config.as_str()) {
                 Ok(config) => config,
                 Err(err) => {
+                    info!("Failed to deserialize config content; using default. Error: ${}", err);
                     TtsAppConfig::default(app_dir.to_path_buf(), app_dir.to_path_buf())
                 }
             }

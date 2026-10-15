@@ -95,7 +95,7 @@ pub fn get_model_config(
     token_path.push("tokens.txt");
 
     let mut data_dir: std::path::PathBuf = base_dir.clone();
-    data_dir.push("tokens.txt");
+    data_dir.push("espeak-ng-data");
 
     match r#type {
         SupportedTTSType::Vits => Ok(TTSModelConfig {
