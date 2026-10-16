@@ -1,18 +1,22 @@
 use crate::{model_manager::SupportedTTSType::Vits, AppState, CommandResult, Error};
-use anyhow::{Context, anyhow};
+use anyhow::{anyhow, Context};
 use bzip2::{read::BzDecoder, Decompress};
 use futures::TryStreamExt;
 use image::EncodableLayout;
-use reqwest::{Client, RequestBuilder};
-use tracing::{error, info, instrument};
 use rayon::slice::ParallelSlice;
+use reqwest::{Client, RequestBuilder};
 use serde::{Deserialize, Serialize};
-use sherpa_onnx::{OfflineTtsKokoroModelConfig, OfflineTtsMatchaModelConfig, OfflineTtsVitsModelConfig};
+use sherpa_onnx::{
+    OfflineTtsKokoroModelConfig, OfflineTtsMatchaModelConfig, OfflineTtsVitsModelConfig,
+};
 use std::{
     io::{self, BufReader, ErrorKind},
     path::{Path, PathBuf},
+    sync::Arc,
 };
 use tar::Archive;
+use tokio::sync::Mutex;
+use tracing::{error, info, instrument};
 
 const SHERPA_URL: &str = "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/tags/tts-models";
 
@@ -20,7 +24,12 @@ const SHERPA_URL: &str = "https://api.github.com/repos/k2-fsa/sherpa-onnx/releas
 #[specta::specta]
 #[instrument(skip(state))]
 pub async fn get_online_models(state: tauri::State<'_, AppState>) -> CommandResult<Vec<Model>> {
-    ModelManager::get_models(state.gh_access_token).await
+    ModelManager::get_models(
+        state.gh_access_token,
+        false,
+        Arc::clone(&state.cached_online_models),
+    )
+    .await
 }
 #[tauri::command(async)]
 #[specta::specta]
@@ -35,14 +44,14 @@ pub async fn download_model(
         .ok_or(anyhow!("Could not find model in list"))?;
 
     let _ =
-        ModelManager::download_model(state.settings.lock().await.app_dir.to_owned(), model).await;
+        ModelManager::download_model(state.gh_access_token, state.settings.lock().await.app_dir.to_owned(), model).await;
 
     Ok(())
 }
 
 #[derive(Deserialize, specta::Type, Serialize, Debug, Clone)]
 pub struct Model {
-    r#type: String,
+    r#type: SupportedTTSType,
     name: String,
     url: String,
     id: u32,
@@ -58,13 +67,28 @@ struct GithubAsset {
 struct GithubModelResponse {
     assets: Vec<GithubAsset>,
 }
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Serialize, Deserialize, Debug, Clone, specta::Type)]
 pub enum SupportedTTSType {
     Vits,
     Kitten,
     Matcha,
     Kokoro,
     Supertonic,
+}
+fn get_type_from_string(file_name: &str) -> Option<SupportedTTSType> {
+    if (file_name.contains("vits")) {
+        Some(SupportedTTSType::Vits)
+    } else if (file_name.contains("kitten")) {
+        Some(SupportedTTSType::Kitten)
+    } else if (file_name.contains("matcha")) {
+        Some(SupportedTTSType::Matcha)
+    } else if (file_name.contains("kokoro")) {
+        Some(SupportedTTSType::Kokoro)
+    } else if (file_name.contains("supertonic")) {
+        Some(SupportedTTSType::Supertonic)
+    } else {
+        None
+    }
 }
 
 pub struct TTSModelConfig {
@@ -125,9 +149,21 @@ pub fn get_model_config(
             let mut model_path = base_dir.clone();
             model_path.push("en_US-libritts_r-medium.onnx");
             Ok(TTSModelConfig {
-                model: Some(model_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
-                tokens: Some(token_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
-                data_dir: Some(data_dir.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                model: Some(
+                    model_path
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
+                tokens: Some(
+                    token_path
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
+                data_dir: Some(
+                    data_dir
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
                 noise_scale: 0.667,
                 noise_scale_w: 0.8,
                 length_scale: 1.0,
@@ -144,9 +180,21 @@ pub fn get_model_config(
             vocoder_path.push("vocos.onnx");
 
             Ok(TTSModelConfig {
-                model: Some(acoustic_path.into_string().map_err(|_|  anyhow!("Failed to get acoustic path"))?), // or map to acoustic field
-                tokens: Some(token_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
-                data_dir: Some(data_dir.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                model: Some(
+                    acoustic_path
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get acoustic path"))?,
+                ), // or map to acoustic field
+                tokens: Some(
+                    token_path
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
+                data_dir: Some(
+                    data_dir
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
                 noise_scale: 0.667,
                 noise_scale_w: 0.8,
                 length_scale: 1.0,
@@ -159,9 +207,21 @@ pub fn get_model_config(
             let mut model_path = base_dir.clone();
             model_path.push("model.onnx");
             Ok(TTSModelConfig {
-                model: Some(model_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
-                tokens: Some(token_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
-                data_dir: Some(data_dir.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                model: Some(
+                    model_path
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
+                tokens: Some(
+                    token_path
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
+                data_dir: Some(
+                    data_dir
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
                 noise_scale: 0.667,
                 noise_scale_w: 0.8,
                 length_scale: 1.0,
@@ -174,9 +234,21 @@ pub fn get_model_config(
             let mut model_path = base_dir.clone();
             model_path.push("model.onnx");
             Ok(TTSModelConfig {
-                model: Some(model_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
-                tokens: Some(token_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
-                data_dir: Some(data_dir.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                model: Some(
+                    model_path
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
+                tokens: Some(
+                    token_path
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
+                data_dir: Some(
+                    data_dir
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
                 noise_scale: 0.667,
                 noise_scale_w: 0.8,
                 length_scale: 1.0,
@@ -189,9 +261,21 @@ pub fn get_model_config(
             let mut model_path = base_dir.clone();
             model_path.push("model.onnx");
             Ok(TTSModelConfig {
-                model: Some(model_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
-                tokens: Some(token_path.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
-                data_dir: Some(data_dir.into_string().map_err(|_| anyhow!("Failed to get model path"))?),
+                model: Some(
+                    model_path
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
+                tokens: Some(
+                    token_path
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
+                data_dir: Some(
+                    data_dir
+                        .into_string()
+                        .map_err(|_| anyhow!("Failed to get model path"))?,
+                ),
                 noise_scale: 0.667,
                 noise_scale_w: 0.8,
                 length_scale: 1.0,
@@ -238,38 +322,71 @@ impl TryInto<OfflineTtsKokoroModelConfig> for TTSModelConfig {
 
 pub struct ModelManager;
 impl ModelManager {
-    #[instrument] 
-    async fn get_models(token: &str) -> CommandResult<Vec<Model>> {
-        info!("Getting online models w/ token... {}", token);
-        let client = Client::new();
+    #[instrument]
+    async fn get_models(
+        token: &str,
+        force_recheck: bool,
+        cached_online_models: Arc<Mutex<Vec<Model>>>,
+    ) -> CommandResult<Vec<Model>> {
+        let mut cached_online_models = cached_online_models.lock().await;
+        if !cached_online_models.is_empty() && !force_recheck {
+            info!("Using cached online models");
+            Ok(cached_online_models.to_vec())
+        } else {
+            info!("Getting online models w/ token... {}", token);
+            let client = Client::new();
 
-        let req: GithubModelResponse = client
-        .get(SHERPA_URL)
-        .bearer_auth(token)
-        .send()
-        .await
-        .context("Could not download model list")?
-        .error_for_status()
-        .context("Could not download model list. Check your internet connection. ")?
-        .json::<GithubModelResponse>()
-        .await
-        .context("Failed to deserialize GitHub model response.")?;
+            let req: GithubModelResponse = client
+                .get(SHERPA_URL)
+                .header("User-Agent", "js5253-pdf-tts-app")
+                .bearer_auth(token)
+                .send()
+                .await
+                .map_err(|e| {
+                    info!("{}", e);
+                    anyhow!("Could not download model list.")
+                })?
+                // .inspect( async |body| {
+                //     let response: String = body.text(),await;
+                //     info!("Request response: {}", response);
+                // })?
+                .error_for_status()
+                .map_err(|e| {
+                    info!("Error: {}", e);
+                    anyhow!("Could not download model list.")
+                })?
+                .json::<GithubModelResponse>()
+                .await
+                .context("Failed to deserialize GitHub model response.")?;
 
-        let models = req
-            .assets
-            .iter()
-            .filter(|asset| asset.name.contains("vits_"))
-            .map(|item| Model {
-                name: item.name.clone(),
-                url: item.url.clone(),
-                r#type: String::from("vits"),
-                id: item.id,
-            })
-            .collect();
-        Ok(models)
+            let models: Vec<Model> = req
+                .assets
+                .iter()
+                .filter_map(|item| {
+                    let r#type = get_type_from_string(item.name.as_str());
+
+                    r#type.as_ref()?;
+                    let r#type = r#type.unwrap();
+                    Some(Model {
+                        name: item.name.clone(),
+                        url: item.url.clone(),
+                        id: item.id,
+                        r#type,
+                    })
+                })
+                .collect();
+            info!("Models: {:?}", models);
+            *cached_online_models = models.clone();
+            Ok(models)
+        }
     }
-    async fn download_model(data_path: PathBuf, model: &Model) -> CommandResult<()> {
-        let req = reqwest::blocking::get(model.url.as_str())
+    async fn download_model(token: &str, data_path: PathBuf, model: &Model) -> CommandResult<()> {
+        let client = reqwest::blocking::Client::new();
+        let req = client
+            .get(model.url.as_str())
+            .header("User-Agent", "js5253-pdf-tts-app")
+            .bearer_auth(token)
+            .send()
             .map_err(|_| anyhow!("Could not download model list"))?;
         let archive = req.bytes().map_err(|_| anyhow!("A"))?;
         let tar = BzDecoder::new(archive.as_bytes());
