@@ -1,22 +1,20 @@
-use crate::{model_manager::SupportedTTSType::Vits, AppState, CommandResult, Error};
+use crate::{AppState, CommandResult, Error};
 use anyhow::{anyhow, Context};
-use bzip2::{read::BzDecoder, Decompress};
+use bzip2::read::BzDecoder;
 use futures::TryStreamExt;
 use image::EncodableLayout;
-use rayon::slice::ParallelSlice;
-use reqwest::{Client, RequestBuilder};
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sherpa_onnx::{
     OfflineTtsKokoroModelConfig, OfflineTtsMatchaModelConfig, OfflineTtsVitsModelConfig,
 };
 use std::{
-    io::{self, BufReader, ErrorKind},
     path::{Path, PathBuf},
     sync::Arc,
 };
 use tar::Archive;
 use tokio::sync::Mutex;
-use tracing::{error, info, instrument};
+use tracing::{info, instrument};
 
 const SHERPA_URL: &str = "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/tags/tts-models";
 
@@ -36,7 +34,7 @@ pub async fn get_online_models(state: tauri::State<'_, AppState>) -> CommandResu
 pub async fn download_model(
     model_id: u32,
     state: tauri::State<'_, AppState>,
-) -> CommandResult<(())> {
+) -> CommandResult<()> {
     let downloaded_model = state.cached_online_models.lock().await;
     let model = downloaded_model
         .iter()
@@ -76,15 +74,15 @@ pub enum SupportedTTSType {
     Supertonic,
 }
 fn get_type_from_string(file_name: &str) -> Option<SupportedTTSType> {
-    if (file_name.contains("vits")) {
+    if file_name.contains("vits") {
         Some(SupportedTTSType::Vits)
-    } else if (file_name.contains("kitten")) {
+    } else if file_name.contains("kitten") {
         Some(SupportedTTSType::Kitten)
-    } else if (file_name.contains("matcha")) {
+    } else if file_name.contains("matcha") {
         Some(SupportedTTSType::Matcha)
-    } else if (file_name.contains("kokoro")) {
+    } else if file_name.contains("kokoro") {
         Some(SupportedTTSType::Kokoro)
-    } else if (file_name.contains("supertonic")) {
+    } else if file_name.contains("supertonic") {
         Some(SupportedTTSType::Supertonic)
     } else {
         None

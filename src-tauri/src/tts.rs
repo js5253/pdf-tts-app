@@ -1,7 +1,7 @@
 use std::{fs, time::Duration};
 
 use crate::{
-    CommandError, Error, config::{self}, model_manager::get_model_config, recents::RecentDoc, text_extraction::get_page_contents,
+    config::{self}, model_manager::get_model_config, text_extraction::get_page_contents,
 };
 use crate::{AppState, CommandResult, TtsGenerationProgress};
 use anyhow::{anyhow, Context};

@@ -1,12 +1,11 @@
-use anyhow::{anyhow, Context};
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 use std::{
-    env, fmt::Display, fs::{self}, sync::{Arc, OnceLock},
+    env, fmt::Display, fs::{self}, sync::Arc,
 };
 use tauri::Manager;
-use tauri_plugin_log::{Target, TargetKind};
 use tauri_specta::{collect_commands, Builder};
 use tokio::sync::Mutex;
 use tracing::info;
