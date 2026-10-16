@@ -32,7 +32,7 @@ export type Error = string;
 export type HasCompletedOnboarding = null;
 
 export type Model = {
-	type: string,
+	type: SupportedTTSType,
 	name: string,
 	url: string,
 	id: number,
@@ -43,6 +43,8 @@ export type RecentDoc = {
 	path: string,
 	id: string,
 };
+
+export type SupportedTTSType = "Vits" | "Kitten" | "Matcha" | "Kokoro" | "Supertonic";
 
 export type TtsAppConfig = {
 	/**  start the narration at a certain page */

@@ -16,7 +16,7 @@ export const Onboarding = () => {
         <ErrorBoundary fallback={<p>Error   </p>}>
         <div class="space-y-4">
             <h1 class="text-4xl">Hey.</h1>
-            <ProgressBar  progress={.6}/>
+            {/* <ProgressBar  progress={.6}/> */}
             <TTSVoiceManager />
             <hr />
             <div class="gap-2 flex flex-row">
