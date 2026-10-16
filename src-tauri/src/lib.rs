@@ -148,7 +148,7 @@ pub fn run() {
                 fs::create_dir_all(&model_path).context("Failed to create Model Dir.")?;
             }
             let mut output_path = app_dir.clone();
-            output_path.push("cache.toml");
+            output_path.push("out");
             if !output_path.exists() {
                 info!("Creating {:?}", output_path);
                 fs::create_dir_all(&output_path).context("Failed to create output path.")?;
@@ -156,13 +156,13 @@ pub fn run() {
             let settings = TtsAppConfig::load_or_default(&app_dir);
             let cache: Arc<Mutex<HashMap<u32, Model>>> = Arc::new(Mutex::new(HashMap::new()));
             let models: Arc<Mutex<Vec<Model>>> = Arc::new(Mutex::new(Vec::new()));
-            async_runtime::block_on(async {
-                let cached = load_cached_models(&mut model_path)
-                    .await
-                    .unwrap_or_default();
-                let mut models = models.lock().await;
-                *models = cached.into_values().collect();
-            });
+            // async_runtime::block_on(async {
+            //     let cached = load_cached_models(&mut model_path)
+            //         .await
+            //         .unwrap_or_default();
+            //     let mut models = models.lock().await;
+            //     *models = cached.into_values().collect();
+            // });
             // let _ = futures::executor::block_on(async {ModelDownloader::load_downloaded_models(Arc::clone(&cache), &model_path.to_path_buf()).await});
             // recheck this to make sure passing app.state is fine
             app.manage(AppState {

@@ -5,17 +5,17 @@ import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 // @ts-expect-error
 import * as pdfjsLib from 'pdfjs-dist/build/pdf.mjs'
 import { Button } from "./Button";
-import { IoAdd, IoArrowUpLeftBox, IoArrowUpRightBox, IoCrop, IoMailUnreadSharp } from "solid-icons/io";
+import { IoAdd, IoArrowUpLeftBox, IoArrowUpRightBox, IoCrop, IoMailUnreadSharp, IoSquare } from "solid-icons/io";
 import { ImFolderMinus } from "solid-icons/im";
 type PDFViewerAppProps = {
   pdfFilePath: string,
 };
 
-const MAX_CANVAS_WIDTH = 400;
-const MAX_CANVAS_HEIGHT = 400;
+const MAX_CANVAS_WIDTH = 600;
+const MAX_CANVAS_HEIGHT = 800;
 
 export const PDFRegionPicker: Component<PDFViewerAppProps> = ({ pdfFilePath }) => {
-  
+
   let canvas!: HTMLCanvasElement;
   onMount(async () => {
     if (!canvas) throw new Error("Missing Canvas");
@@ -57,11 +57,15 @@ export const PDFRegionPicker: Component<PDFViewerAppProps> = ({ pdfFilePath }) =
   })
 
   return (
-    <div class="">
-      <p>Selected FIle: {pdfFilePath}</p>
+    <div class="bg-green-50 p-4 rounded space-y-4">
+      <p class="text-center text-gray-500">Selected FIle: {pdfFilePath}</p>
+      <div class="p-4 bg-green-100 mx-auto text-center">
+        <div><input type="checkbox" name="whole-doc"/> <label for="whole-doc">TTS-ify Whole Document</label></div>
+
+        <Button><IoAdd /></Button><Button><ImFolderMinus /></Button><Button><IoArrowUpLeftBox /></Button><Button><IoArrowUpRightBox /></Button> <Button><IoSquare /></Button></div>
+
       <div class="flex-1 relative h-full flex items-center justify-center  flex-col">
-        <div><Button><IoAdd /></Button><Button><ImFolderMinus /></Button><Button><IoArrowUpLeftBox /></Button><Button><IoArrowUpRightBox/></Button> </div>
-        <canvas id="the-canvas" style="border: 1px solid black; direction: ltr" ref={(el) => {
+        <canvas id="the-canvas" style="border: 1px solid black; direction: ltr; width: 600px; height: 600px;" ref={(el) => {
           canvas = el; // el is created but not yet added to the DOM
         }}></canvas>
       </div>
