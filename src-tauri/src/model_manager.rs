@@ -9,6 +9,7 @@ use sherpa_onnx::{
     OfflineTtsKokoroModelConfig, OfflineTtsMatchaModelConfig, OfflineTtsVitsModelConfig,
 };
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -31,18 +32,19 @@ pub async fn get_online_models(state: tauri::State<'_, AppState>) -> CommandResu
 }
 #[tauri::command(async)]
 #[specta::specta]
-pub async fn download_model(
-    model_id: u32,
-    state: tauri::State<'_, AppState>,
-) -> CommandResult<()> {
+#[instrument(skip(state))]
+pub async fn download_model(model_id: u32, state: tauri::State<'_, AppState>) -> CommandResult<()> {
     let downloaded_model = state.cached_online_models.lock().await;
     let model = downloaded_model
-        .iter()
-        .find(|item| item.id == model_id)
+        .get(&model_id)
         .ok_or(anyhow!("Could not find model in list"))?;
-
-    let _ =
-        ModelManager::download_model(state.gh_access_token, state.settings.lock().await.app_dir.to_owned(), model).await;
+    info!("Requested model download {:?}", model);
+    let _ = ModelManager::download_model(
+        state.gh_access_token,
+        state.settings.lock().await.app_dir.to_owned(),
+        model,
+    )
+    .await;
 
     Ok(())
 }
@@ -324,12 +326,13 @@ impl ModelManager {
     async fn get_models(
         token: &str,
         force_recheck: bool,
-        cached_online_models: Arc<Mutex<Vec<Model>>>,
+        cached_online_models: Arc<Mutex<HashMap<u32, Model>>>,
     ) -> CommandResult<Vec<Model>> {
         let mut cached_online_models = cached_online_models.lock().await;
         if !cached_online_models.is_empty() && !force_recheck {
             info!("Using cached online models");
-            Ok(cached_online_models.to_vec())
+            let arr: Vec<Model> = cached_online_models.clone().into_values().collect();
+            Ok(arr)
         } else {
             info!("Getting online models w/ token... {}", token);
             let client = Client::new();
@@ -357,7 +360,7 @@ impl ModelManager {
                 .await
                 .context("Failed to deserialize GitHub model response.")?;
 
-            let models: Vec<Model> = req
+            let models: HashMap<u32, Model> = req
                 .assets
                 .iter()
                 .filter_map(|item| {
@@ -365,35 +368,44 @@ impl ModelManager {
 
                     r#type.as_ref()?;
                     let r#type = r#type.unwrap();
-                    Some(Model {
-                        name: item.name.clone(),
-                        url: item.url.clone(),
-                        id: item.id,
-                        r#type,
-                    })
+                    Some((
+                        item.id,
+                        Model {
+                            name: item.name.clone(),
+                            url: item.url.clone(),
+                            id: item.id,
+                            r#type,
+                        },
+                    ))
                 })
                 .collect();
             info!("Models: {:?}", models);
             *cached_online_models = models.clone();
-            Ok(models)
+            let arr: Vec<Model> = models.into_values().collect();
+
+            Ok(arr)
         }
     }
     async fn download_model(token: &str, data_path: PathBuf, model: &Model) -> CommandResult<()> {
-        let client = reqwest::blocking::Client::new();
-        let req = client
-            .get(model.url.as_str())
-            .header("User-Agent", "js5253-pdf-tts-app")
-            .bearer_auth(token)
-            .send()
-            .map_err(|_| anyhow!("Could not download model list"))?;
-        let archive = req.bytes().map_err(|_| anyhow!("A"))?;
-        let tar = BzDecoder::new(archive.as_bytes());
+        
+        // tokio::task::spawn_blocking(move || {
+        // let client = reqwest::blocking::Client::new();
+        // let req = client
+        //     .get(url)
+        //     .header("User-Agent", "js5253-pdf-tts-app")
+        //     .bearer_auth(token)
+        //     .send()
+        //     .map_err(|_| anyhow!("Could not download model")).expect("msg");
+        // let archive = req.bytes().map_err(|_| anyhow!("A")).unwrap();
+        // let tar = BzDecoder::new(archive.as_bytes());
 
-        let mut decoded = Archive::new(tar);
-        decoded
-            .unpack(data_path)
-            .map_err(|_| anyhow!("Could not unpack downloaded archive."))?;
+        // let mut decoded = Archive::new(tar);
+        // decoded
+        //     .unpack(data_path)
+        //     .map_err(|_| anyhow!("Could not unpack downloaded archive.")).unwrap();
 
+
+        // });
         Ok(())
     }
 }

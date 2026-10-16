@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 use std::{
-    env, fmt::Display, fs::{self}, sync::Arc,
+    collections::HashMap, env, fmt::Display, fs::{self}, sync::Arc,
 };
 use tauri::Manager;
 use tauri_specta::{collect_commands, Builder};
@@ -28,7 +28,7 @@ use models::{
 use recents::{get_recent_docs, RecentDoc};
 use tts::run_job;
 
-use crate::model_manager::get_online_models;
+use crate::model_manager::{download_model, get_online_models};
 
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 struct CompletedOnboardingRequest(bool);
@@ -88,11 +88,13 @@ struct AppState {
     completed_onboarding: Arc<Mutex<bool>>,
     recent_tts:Arc<Mutex<Vec<RecentDoc>>>,
     downloaded_models: Arc<Mutex<Vec<Model>>>,
-    cached_online_models: Arc<Mutex<Vec<Model>>>,
+    cached_online_models: Arc<Mutex<HashMap<u32, Model>>>,
     download_progress: Arc<Mutex<Vec<DownloadManagerProgress>>>,
     gh_access_token: &'static str
 }
+async fn download_manager() {
 
+}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let gh_access_token = dotenvy_macro::dotenv!("GH_ACCESS_TOKEN"); 
@@ -113,7 +115,8 @@ pub fn run() {
             run_job,
             get_online_models,
             get_completed_onboarding,
-            set_completed_onboarding
+            set_completed_onboarding,
+            download_model
         ]);
     #[cfg(debug_assertions)] // <- Only export on non-release builds
     builder
@@ -128,6 +131,7 @@ pub fn run() {
         // )
         .setup(move |app| {
             builder.mount_events(app);
+            tauri::async_runtime::spawn(async {download_manager().await});
             let app_dir = app
                 .path()
                 .app_data_dir()
@@ -150,7 +154,7 @@ pub fn run() {
                 fs::create_dir_all(&output_path).context("Failed to create output path.")?;
             }
             let settings = TtsAppConfig::load_or_default(&app_dir);
-            let cache: Arc<Mutex<Vec<Model>>> = Arc::new(Mutex::new(Vec::new()));
+            let cache: Arc<Mutex<HashMap<u32, Model>>> = Arc::new(Mutex::new(HashMap::new()));
             let models = Arc::new(Mutex::new(Vec::new()));
 
             // let _ = futures::executor::block_on(async  {ModelDownloader::load_cached_model_list(Arc::clone(&cache), &model_path.to_path_buf()).await});
@@ -178,6 +182,7 @@ pub fn run() {
             set_completed_onboarding,
             set_default_model,
             get_downloaded_models,
+            download_model,
             run_job
         ])
         .run(tauri::generate_context!())
