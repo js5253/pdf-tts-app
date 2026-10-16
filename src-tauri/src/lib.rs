@@ -3,9 +3,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 use std::{
-    collections::HashMap, env, fmt::Display, fs::{self}, sync::Arc,
+    collections::HashMap, env, fmt::Display, fs::{self}, path::{Path, PathBuf}, sync::Arc,
 };
-use tauri::Manager;
+use tauri::{async_runtime, Manager};
 use tauri_specta::{collect_commands, Builder};
 use tokio::sync::Mutex;
 use tracing::info;
@@ -17,6 +17,7 @@ mod models;
 mod recents;
 mod text_extraction;
 mod tts;
+use crate::model_manager::load_cached_models;
 use config::{
     get_completed_onboarding, get_config, set_completed_onboarding, set_config, TtsAppConfig,
 };
@@ -28,7 +29,7 @@ use models::{
 use recents::{get_recent_docs, RecentDoc};
 use tts::run_job;
 
-use crate::model_manager::{download_model, get_online_models};
+use crate::model_manager::{download_model, get_online_models, ModelManager};
 
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 struct CompletedOnboardingRequest(bool);
@@ -86,18 +87,17 @@ struct HasCompletedOnboarding;
 struct AppState {
     settings: Arc<Mutex<TtsAppConfig>>,
     completed_onboarding: Arc<Mutex<bool>>,
-    recent_tts:Arc<Mutex<Vec<RecentDoc>>>,
+    recent_tts: Arc<Mutex<Vec<RecentDoc>>>,
     downloaded_models: Arc<Mutex<Vec<Model>>>,
     cached_online_models: Arc<Mutex<HashMap<u32, Model>>>,
     download_progress: Arc<Mutex<Vec<DownloadManagerProgress>>>,
-    gh_access_token: &'static str
+    gh_access_token: &'static str,
+    app_dir: PathBuf
 }
-async fn download_manager() {
-
-}
+async fn download_manager() {}
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let gh_access_token = dotenvy_macro::dotenv!("GH_ACCESS_TOKEN"); 
+    let gh_access_token = dotenvy_macro::dotenv!("GH_ACCESS_TOKEN");
     tracing_subscriber::registry()
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
         .with(fmt::layer())
@@ -131,7 +131,7 @@ pub fn run() {
         // )
         .setup(move |app| {
             builder.mount_events(app);
-            tauri::async_runtime::spawn(async {download_manager().await});
+            tauri::async_runtime::spawn(async { download_manager().await });
             let app_dir = app
                 .path()
                 .app_data_dir()
@@ -148,16 +148,21 @@ pub fn run() {
                 fs::create_dir_all(&model_path).context("Failed to create Model Dir.")?;
             }
             let mut output_path = app_dir.clone();
-            output_path.push("output");
+            output_path.push("cache.toml");
             if !output_path.exists() {
                 info!("Creating {:?}", output_path);
                 fs::create_dir_all(&output_path).context("Failed to create output path.")?;
             }
             let settings = TtsAppConfig::load_or_default(&app_dir);
             let cache: Arc<Mutex<HashMap<u32, Model>>> = Arc::new(Mutex::new(HashMap::new()));
-            let models = Arc::new(Mutex::new(Vec::new()));
-
-            // let _ = futures::executor::block_on(async  {ModelDownloader::load_cached_model_list(Arc::clone(&cache), &model_path.to_path_buf()).await});
+            let models: Arc<Mutex<Vec<Model>>> = Arc::new(Mutex::new(Vec::new()));
+            async_runtime::block_on(async {
+                let cached = load_cached_models(&mut model_path)
+                    .await
+                    .unwrap_or_default();
+                let mut models = models.lock().await;
+                *models = cached.into_values().collect();
+            });
             // let _ = futures::executor::block_on(async {ModelDownloader::load_downloaded_models(Arc::clone(&cache), &model_path.to_path_buf()).await});
             // recheck this to make sure passing app.state is fine
             app.manage(AppState {
@@ -167,7 +172,8 @@ pub fn run() {
                 cached_online_models: cache,
                 downloaded_models: models,
                 download_progress: Arc::new(Mutex::new(Vec::new())),
-                gh_access_token
+                gh_access_token,
+                app_dir
             });
             Ok(())
         })

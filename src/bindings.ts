@@ -14,6 +14,7 @@ export const commands = {
 	getOnlineModels: () => typedError<Model[], CommandError>(__TAURI_INVOKE("get_online_models")),
 	getCompletedOnboarding: () => typedError<boolean, CommandError>(__TAURI_INVOKE("get_completed_onboarding")),
 	setCompletedOnboarding: (request: CompletedOnboardingRequest, onboardingCh: Channel<HasCompletedOnboarding>) => typedError<null, CommandError>(__TAURI_INVOKE("set_completed_onboarding", { request, onboardingCh })),
+	downloadModel: (modelId: number) => typedError<null, CommandError>(__TAURI_INVOKE("download_model", { modelId })),
 };
 
 /* Types */

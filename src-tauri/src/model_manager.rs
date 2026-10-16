@@ -10,6 +10,7 @@ use sherpa_onnx::{
 };
 use std::{
     collections::HashMap,
+    fs,
     path::{Path, PathBuf},
     sync::Arc,
 };
@@ -19,12 +20,21 @@ use tracing::{info, instrument};
 
 const SHERPA_URL: &str = "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/tags/tts-models";
 
+pub async fn load_cached_models(data_path: &mut PathBuf) -> CommandResult<HashMap<u32, Model>> {
+    data_path.push("models.toml");
+    let contents = fs::read_to_string(data_path)?;
+    let contents = contents.as_str();
+    let models: HashMap<u32, Model> = toml::from_str(contents)?;
+    Ok(models)
+}
+
 #[tauri::command(async)]
 #[specta::specta]
 #[instrument(skip(state))]
 pub async fn get_online_models(state: tauri::State<'_, AppState>) -> CommandResult<Vec<Model>> {
     ModelManager::get_models(
         state.gh_access_token,
+        &state.app_dir,
         false,
         Arc::clone(&state.cached_online_models),
     )
@@ -103,14 +113,6 @@ pub struct TTSModelConfig {
     pub r#type: SupportedTTSType,
 }
 
-// let mut model_path: std::path::PathBuf = current_path.clone();
-// model_path.push("en_US-libritts_r-medium.onnx");
-
-// let mut token_path: std::path::PathBuf = current_path.clone();
-// token_path.push("tokens.txt");
-
-// let mut data_dir = current_path.clone();
-// data_dir.push("espeak-ng-data");
 impl TryInto<OfflineTtsVitsModelConfig> for TTSModelConfig {
     type Error = crate::Error;
 
@@ -325,6 +327,7 @@ impl ModelManager {
     #[instrument]
     async fn get_models(
         token: &str,
+        app_dir: &PathBuf,
         force_recheck: bool,
         cached_online_models: Arc<Mutex<HashMap<u32, Model>>>,
     ) -> CommandResult<Vec<Model>> {
@@ -360,6 +363,10 @@ impl ModelManager {
                 .await
                 .context("Failed to deserialize GitHub model response.")?;
 
+            // serialize into
+            let mut output_path = app_dir.clone();
+            output_path.push("cache.toml");
+
             let models: HashMap<u32, Model> = req
                 .assets
                 .iter()
@@ -379,6 +386,8 @@ impl ModelManager {
                     ))
                 })
                 .collect();
+            fs::write(output_path, toml::to_string_pretty(&models)?)?;
+
             info!("Models: {:?}", models);
             *cached_online_models = models.clone();
             let arr: Vec<Model> = models.into_values().collect();
@@ -387,7 +396,6 @@ impl ModelManager {
         }
     }
     async fn download_model(token: &str, data_path: PathBuf, model: &Model) -> CommandResult<()> {
-        
         // tokio::task::spawn_blocking(move || {
         // let client = reqwest::blocking::Client::new();
         // let req = client
@@ -403,7 +411,6 @@ impl ModelManager {
         // decoded
         //     .unpack(data_path)
         //     .map_err(|_| anyhow!("Could not unpack downloaded archive.")).unwrap();
-
 
         // });
         Ok(())

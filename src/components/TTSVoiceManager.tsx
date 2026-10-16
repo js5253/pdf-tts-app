@@ -11,7 +11,9 @@ import { useEventContext } from "../context/EventContext";
 export const TTSVoiceManager = () => {
     const [models, { refetch }] = translateSpectaToSolidResource(commands.getOnlineModels);
     const [dataDir] = createResource<string>(appDataDir);
-    console.log(models())
+    const onDownloadRequested  = async (id: number) => {
+        await commands.downloadModel(id);
+    }
     return (
         <ErrorBoundary fallback={<div class="flex flex-col">
             <p>You're offline. Set TTS up later, or copy your model directly to the folder.</p>
@@ -30,7 +32,7 @@ export const TTSVoiceManager = () => {
                     </select>
                 <ul class="flex flex-col gap-2">
                     <For each={models()}>
-                        {(item) => <div class="flex flex-row items-between justify-between p-2 bg-green-50 rounded">{item.name} <button><IoDownload size={24} /></button></div>}
+                        {(item) => <div class="flex flex-row items-between justify-between p-2 bg-green-50 rounded">{item.name} <button onClick={() => onDownloadRequested(item.id).then()}><IoDownload size={24} /></button></div>}
                     </For>
                 </ul>
                 <div>
