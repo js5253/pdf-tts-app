@@ -1,18 +1,21 @@
 use std::{fs, time::Duration};
 
+use crate::model_manager::SupportedTTSType;
 use crate::{
-    config::{self}, model_manager::get_model_config, text_extraction::get_page_contents,
+    config::{self},
+    model_manager::get_model_config,
+    recents::RecentDoc,
+    text_extraction::get_page_contents,
 };
-use crate::{AppState, CommandResult, TtsGenerationProgress};
+use crate::{util::CommandResult, AppState, TtsGenerationProgress};
 use anyhow::{anyhow, Context};
 use log::info;
 use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig};
 use tokio::time::Instant;
 use tracing::instrument;
 use uuid::Uuid;
-use crate::model_manager::SupportedTTSType;
 
-#[instrument(skip(state, progress_reader), err)] 
+#[instrument(skip(state, progress_reader), err)]
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn run_job(
@@ -27,21 +30,22 @@ pub async fn run_job(
     if fs::read_dir("out").is_err() {
         fs::create_dir("out").context("Failed to create output directory")?;
     }
-    
-    let settings = state.settings.lock().await;
-    let current_path = {
-        let settings = settings.app_dir.clone();
-        settings.join("tts/").join(&job.voice)
-    };
+
+    let current_path = state.app_dir.clone().join("tts/").join(&job.voice);
     println!("{:?}", current_path);
     // let current_path = Path::new();
-    let mut dir = fs::read_dir(&current_path).context(format!("Could not read the TTS model directory: {:?}", &current_path))?;
+    let mut dir = fs::read_dir(&current_path).context(format!(
+        "Could not read the TTS model directory: {:?}",
+        current_path
+    ))?;
     if dir.next().is_none() {
         return Err(anyhow!("Could not find a TTS model").into());
     }
     let config = OfflineTtsConfig {
         model: sherpa_onnx::OfflineTtsModelConfig {
-            vits: get_model_config(&current_path, SupportedTTSType::Vits)?.try_into().map_err(|_| anyhow!("Failed to get model config"))?,
+            vits: get_model_config(&current_path, SupportedTTSType::Vits)?
+                .try_into()
+                .map_err(|_| anyhow!("Failed to get model config"))?,
             num_threads: std::thread::available_parallelism()
                 .map_err(|_| anyhow!("could not get thread count for tts generation"))?
                 .get() as i32,
@@ -51,7 +55,10 @@ pub async fn run_job(
         ..Default::default()
     };
     dbg!("{}", &config);
-    let tts = OfflineTts::create(&config).ok_or(anyhow!("Could not create TTS Engine with config {:?}", config))?;
+    let tts = OfflineTts::create(&config).ok_or(anyhow!(
+        "Could not create TTS Engine with config {:?}",
+        config
+    ))?;
     let id: String = Uuid::new_v4().into();
     let gen_config = GenerationConfig {
         sid: job.speaker_id as i32,
@@ -91,12 +98,18 @@ pub async fn run_job(
     );
     info!("Saving to: {:?}", file_path);
     let saved = audio.save(file_path.as_str());
-    info!("Job Done.");
-    if saved {
-        {
-        // let mut data = state.recent_tts.lock().await;
-        // data.push(RecentDoc { name: id.clone(), path: file_path, id: id.clone() });
-        }
-    }
+    info!("Job Done: status {saved}");
+    // if saved {
+    //     {
+    //         {
+    //             let mut data = state.recent_tts.lock().await;
+    //             data.push(RecentDoc {
+    //                 name: id.clone(),
+    //                 path: file_path.clone(),
+    //                 id: id.clone(),
+    //             });
+    //         }
+    //     }
+    // }
     Ok(())
 }

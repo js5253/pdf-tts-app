@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AppState, CommandResult};
+use crate::{AppState, util::CommandResult};
 
 #[derive(Serialize, Deserialize, Debug, specta::Type, Clone)]
 pub struct RecentDoc {

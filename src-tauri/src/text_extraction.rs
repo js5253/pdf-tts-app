@@ -63,7 +63,7 @@ fn run_pdf_text(input_file: &String) -> anyhow::Result<Vec<Page>> {
         .markdown
     {
         p.push(Page {
-            contents: strip_markdown(&text.clone()),
+            contents: strip_markdown(text),
             index: 0,
         })
     };

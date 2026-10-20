@@ -15,6 +15,7 @@ export const TTSVoiceManager = () => {
     }
     const reloadTtsModels = async () => {
         await refetch()
+        console.log(models())
     }
     return (
         <div class="bg-green-100 p-4 backdrop-filter-12 rounded">

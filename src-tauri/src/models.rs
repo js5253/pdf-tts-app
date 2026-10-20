@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{AppState, CommandResult, Model};
+use crate::{AppState, util::CommandResult, Model};
 
 #[derive(Deserialize, Serialize, specta::Type, Debug, Clone)]
 pub struct DownloadManagerProgress {

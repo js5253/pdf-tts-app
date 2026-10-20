@@ -14,6 +14,7 @@ import { translateSpectaToSolidResource } from "./util";
 import { Channel } from "@tauri-apps/api/core";
 import {EventContextProvider, useEventContext } from "./context/EventContext";
 import "@pdfslick/solid/dist/pdf_viewer.css";
+import { FaSolidSpinner } from "solid-icons/fa";
 
 const Layout = (props: ParentProps) => {
     return (
@@ -36,7 +37,7 @@ const Layout = (props: ParentProps) => {
     );
 };
 const Wrapper = () => {
-    return <Suspense fallback={<p>Loading...</p>}><main class="h-screen bg-green-100 flex flex-col">
+    return <Suspense fallback={<div class="bg-green-100 w-screen h-screen flex justify-center items-center"><FaSolidSpinner size={30} class="animate-spin" /></div>}><main class="h-screen bg-green-100 flex flex-col">
         <EventContextProvider>
             <App />
         </EventContextProvider>

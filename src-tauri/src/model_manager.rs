@@ -1,8 +1,10 @@
-use crate::{AppState, CommandResult, Error};
+use crate::{
+    download_manager::DownloadRequest,
+    util::{CommandResult, Error},
+    AppState,
+};
 use anyhow::{anyhow, Context};
-use bzip2::read::BzDecoder;
 use futures::TryStreamExt;
-use image::EncodableLayout;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sherpa_onnx::{
@@ -14,8 +16,7 @@ use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use tar::Archive;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 use tracing::{info, instrument};
 
 const SHERPA_URL: &str = "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/tags/tts-models";
@@ -49,22 +50,17 @@ pub async fn download_model(model_id: u32, state: tauri::State<'_, AppState>) ->
         .get(&model_id)
         .ok_or(anyhow!("Could not find model in list"))?;
     info!("Requested model download {:?}", model);
-    let _ = ModelManager::download_model(
-        state.gh_access_token,
-        state.settings.lock().await.app_dir.to_owned(),
-        model,
-    )
-    .await;
+    let _ = ModelManager::download_model(model, &state.download_manager).await;
 
     Ok(())
 }
 
 #[derive(Deserialize, specta::Type, Serialize, Debug, Clone)]
 pub struct Model {
-    r#type: SupportedTTSType,
-    name: String,
-    url: String,
-    id: u32,
+    pub r#type: SupportedTTSType,
+    pub name: String,
+    pub url: String,
+    pub id: u32,
 }
 #[derive(Deserialize)]
 struct GithubAsset {
@@ -114,7 +110,7 @@ pub struct TTSModelConfig {
 }
 
 impl TryInto<OfflineTtsVitsModelConfig> for TTSModelConfig {
-    type Error = crate::Error;
+    type Error = crate::util::Error;
 
     fn try_into(self) -> Result<OfflineTtsVitsModelConfig, Self::Error> {
         if self.r#type != SupportedTTSType::Vits {
@@ -129,7 +125,6 @@ impl TryInto<OfflineTtsVitsModelConfig> for TTSModelConfig {
             noise_scale_w: self.noise_scale_w,
             length_scale: self.length_scale,
             dict_dir: self.dict_dir,
-            ..Default::default()
         })
     }
 }
@@ -290,7 +285,7 @@ pub fn get_model_config(
 }
 
 impl TryInto<OfflineTtsMatchaModelConfig> for TTSModelConfig {
-    type Error = crate::Error;
+    type Error = crate::util::Error;
     fn try_into(self) -> Result<OfflineTtsMatchaModelConfig, Self::Error> {
         if self.r#type != SupportedTTSType::Matcha {
             return Err(Error("Expected Matcha TTS type".into()));
@@ -307,7 +302,7 @@ impl TryInto<OfflineTtsMatchaModelConfig> for TTSModelConfig {
 }
 
 impl TryInto<OfflineTtsKokoroModelConfig> for TTSModelConfig {
-    type Error = crate::Error;
+    type Error = crate::util::Error;
     fn try_into(self) -> Result<OfflineTtsKokoroModelConfig, Self::Error> {
         if self.r#type != SupportedTTSType::Kokoro {
             return Err(Error("Expected Kokoro TTS type".into()));
@@ -337,7 +332,7 @@ impl ModelManager {
             let arr: Vec<Model> = cached_online_models.clone().into_values().collect();
             Ok(arr)
         } else {
-            info!("Getting online models w/ token... {}", token);
+            info!("getting online models... {}", token);
             let client = Client::new();
 
             let req: GithubModelResponse = client
@@ -350,13 +345,10 @@ impl ModelManager {
                     info!("{}", e);
                     anyhow!("Could not download model list.")
                 })?
-                // .inspect( async |body| {
-                //     let response: String = body.text(),await;
-                //     info!("Request response: {}", response);
-                // })?
+
                 .error_for_status()
                 .map_err(|e| {
-                    info!("Error: {}", e);
+                    info!("Failed to get HTTP request: {}", e);
                     anyhow!("Could not download model list.")
                 })?
                 .json::<GithubModelResponse>()
@@ -395,24 +387,14 @@ impl ModelManager {
             Ok(arr)
         }
     }
-    async fn download_model(token: &str, data_path: PathBuf, model: &Model) -> CommandResult<()> {
-        // tokio::task::spawn_blocking(move || {
-        // let client = reqwest::blocking::Client::new();
-        // let req = client
-        //     .get(url)
-        //     .header("User-Agent", "js5253-pdf-tts-app")
-        //     .bearer_auth(token)
-        //     .send()
-        //     .map_err(|_| anyhow!("Could not download model")).expect("msg");
-        // let archive = req.bytes().map_err(|_| anyhow!("A")).unwrap();
-        // let tar = BzDecoder::new(archive.as_bytes());
-
-        // let mut decoded = Archive::new(tar);
-        // decoded
-        //     .unpack(data_path)
-        //     .map_err(|_| anyhow!("Could not unpack downloaded archive.")).unwrap();
-
-        // });
+    async fn download_model(
+        model: &Model,
+        tx: &mpsc::Sender<DownloadRequest>,
+    ) -> CommandResult<()> {
+        tx.send(DownloadRequest {
+            url: model.url.clone(),
+        })
+        .await?;
         Ok(())
     }
 }

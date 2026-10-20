@@ -1,7 +1,8 @@
 # PDF-TTS-APP
 Simple Tauri app that uses sherpa to create a text-to-speech of whatever pdf you send it. Made with Sherpa, Solid.js, and Tauri.
-
-![project screenshot](resources/public/image.png)
+## Screenshots
+![project screenshot](resources/public/homepage.png)
+![onboarding](resources/public/onboarding.png)
 
 ## TTS Model Support
 This project will soon support all k2-fsa TTS models. 

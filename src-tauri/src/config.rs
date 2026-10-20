@@ -6,9 +6,9 @@ use std::{
 use anyhow::{anyhow};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
-use tracing::info;
+use tracing::{info, instrument};
 
-use crate::{AppState, CommandResult, CompletedOnboardingRequest, HasCompletedOnboarding};
+use crate::{AppState, util::CommandResult, CompletedOnboardingRequest, HasCompletedOnboarding};
 
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 pub struct TtsJobConfig {
@@ -26,7 +26,7 @@ pub struct TtsJobConfig {
     pub input_file: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, specta::Type)]
+#[derive(Serialize, Debug, Deserialize, Clone, specta::Type)]
 pub struct TtsAppConfig {
     /// start the narration at a certain page
     pub app_dir: PathBuf,
@@ -44,7 +44,7 @@ impl TtsAppConfig {
     fn default(output_dir: PathBuf, app_dir: PathBuf) -> Self {
         TtsAppConfig {
             start_page: 0,
-            output_dir: output_dir.clone(),
+            output_dir,
             app_dir,
             voice: String::from("vits-piper-en_US-libritts_r-medium"),
             speed: 1.0,
@@ -86,6 +86,7 @@ impl TtsAppConfig {
 
 #[tauri::command]
 #[specta::specta]
+#[instrument]
 pub async fn get_config(state: tauri::State<'_, AppState>) -> CommandResult<TtsAppConfig> {
     // TODO: figure out best practice for returning data based on mutex
     let config: TtsAppConfig = {
