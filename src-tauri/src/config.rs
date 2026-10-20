@@ -37,6 +37,7 @@ pub struct TtsAppConfig {
     pub speed: f32,
     pub combine_pages: bool,
     pub speaker_id: u32,
+    pub base_color: String
 }
 
 // NOTE: APP CONFIG NEEDS TO BE MANAGED MORE CLEANLY BETWEEN UPDATES.
@@ -50,6 +51,7 @@ impl TtsAppConfig {
             speed: 1.0,
             combine_pages: true,
             speaker_id: 1,
+            base_color: String::from("green"),
             output_prefix: String::from("page_"),
         }
     }
@@ -76,6 +78,7 @@ impl TtsAppConfig {
                 combine_pages: true,
                 speaker_id: 1,
                 output_prefix: String::from("page_"),
+                base_color: String::from("green")
             };
             fs::write(config_path, toml::to_string(&config).unwrap()).unwrap();
 

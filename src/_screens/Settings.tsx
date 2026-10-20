@@ -7,8 +7,9 @@ import { commands, } from "../bindings";
 import { SHERPA_MODEL_ADDRESS, translateSpectaToSolidResource } from "../util";
 import { TTSVoiceManager } from "../components/TTSVoiceManager";
 import { IoInformation, IoInformationCircle } from "solid-icons/io";
+import { ColorPicker } from "../components/ColorPicker";
 const Settings = () => {
-    const [config] = translateSpectaToSolidResource(commands.getConfig);
+    const [config] = useConfig();
     const [models, { refetch: refetchModels }] = translateSpectaToSolidResource(commands.getDownloadedModels)
     const [dataDir] = createResource<string>(appDataDir)
     const reloadTtsModels = async () => {
@@ -28,9 +29,20 @@ const Settings = () => {
     // }
 
     return (
-        <div class="w-[800px] bg-green-50 p-4 space-y-4">{config ? <>
+        <div class="w-[800px] bg-green-50 p-4 space-y-8">{config ? <>
+            <Button onClick={() => openPath(dataDir() + '/out')}>Open Output Directory</Button>
             <div class="flex-col gap-2">
-                <Button onClick={() => openPath(dataDir() + '/out')}>Open Output Directory</Button>
+                <h1 class="text-xl">Color & Theming</h1>
+                <div class="flex flex-row gap-2">
+                    <ColorPicker selected color="purple-500" />
+                    <ColorPicker color="red-500" />
+                    <ColorPicker color="green-500" />
+                    <ColorPicker color="orange-500" />
+                    <ColorPicker color="blue-500" />
+                </div>
+
+            </div>
+            <div class="flex-col gap-2">
                 <h1 class="text-xl">Default Options</h1>
                 <div>
                     <input type="checkbox" name="sameOutputDirectory" />
@@ -54,7 +66,7 @@ const Settings = () => {
                 <h2 class="text-xl">TTS Voice Manager</h2>
                 <ul class="flex flex-col gap-2">
                     <h3>Downloaded</h3>
-                    <For each={models()} fallback={<p class="flex flex-row items-cente gap-1"><IoInformationCircle />No Models Downloaded.</p>}> 
+                    <For each={models()} fallback={<p class="flex flex-row items-cente gap-1"><IoInformationCircle />No Models Downloaded.</p>}>
                         {(model) => <li data-index={model} class={classNames("shadow bg-green-50 px-4 py-2 bg-gray-200 rounded flex flex-row items-between justify-between", { "font-bold": config().voice == model })}>{model}
 
                             <Show when={config().voice !== model}><Button onClick={() => makeDefaultModel(model)}>Make Default</Button></Show></li>}

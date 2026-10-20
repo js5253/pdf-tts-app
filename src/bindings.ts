@@ -57,6 +57,7 @@ export type TtsAppConfig = {
 	speed: number | null,
 	combine_pages: boolean,
 	speaker_id: number,
+	base_color: string,
 };
 
 export type TtsGenerationProgress = { event: "inProgress"; data: number | null } | { event: "finished" };
