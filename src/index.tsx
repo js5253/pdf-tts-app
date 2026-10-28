@@ -16,6 +16,8 @@ import { EventContextProvider, useEventContext } from "./context/EventContext";
 import "@pdfslick/solid/dist/pdf_viewer.css";
 import { FaSolidSpinner } from "solid-icons/fa";
 import { SettingsContextProvider } from "./context/SettingsContext";
+import { JobProgress } from "./_screens/JobProgress";
+import { ModelDownloader } from "./_screens/ModelDownloader";
 
 const Layout = (props: ParentProps) => {
     return (
@@ -59,6 +61,9 @@ const App = () => {
             {hasCompletedOnboarding() ?
                 <Route path="/" component={Home} /> :
                 <Route path="/" component={Onboarding} />}
+            <Route path="/model_downloads" component={ModelDownloader} />
+            <Route path="/in_progress" component={JobProgress} />
+
             <Route path="/done" component={Done} />
             <Route path="/settings" component={Settings} />
         </Router>

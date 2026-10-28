@@ -1,8 +1,8 @@
 import { onMount } from "solid-js";
-import { useConfig } from "../hooks/useConfig"
+import { useSettings } from "../context/SettingsContext";
 
 export const AdvancedOptionsPanel = () => {
-    const [config] = useConfig();
+    const [config] = useSettings();
 
     return (
         <div class="backdrop-brightness-80 shadow w-[80vw] min-h-48 p-4">

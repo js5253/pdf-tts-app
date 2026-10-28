@@ -1,6 +1,6 @@
 use crate::{
     download_manager::DownloadRequest,
-    util::{CommandResult, Error},
+    util::{CommandError, CommandResult, Error},
     AppState,
 };
 use anyhow::{anyhow, Context};
@@ -8,7 +8,9 @@ use futures::TryStreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sherpa_onnx::{
-    OfflineTtsKokoroModelConfig, OfflineTtsMatchaModelConfig, OfflineTtsVitsModelConfig,
+    OfflineTtsConfig, OfflineTtsKittenModelConfig, OfflineTtsKokoroModelConfig,
+    OfflineTtsMatchaModelConfig, OfflineTtsModelConfig, OfflineTtsSupertonicModelConfig,
+    OfflineTtsVitsModelConfig,
 };
 use std::{
     collections::HashMap,
@@ -62,6 +64,159 @@ pub struct Model {
     pub url: String,
     pub id: u32,
 }
+impl Model {
+    pub fn get_config(&self, base_dir: &Path) -> CommandResult<TTSModelConfig> {
+        let base_dir = base_dir.to_path_buf();
+
+        let mut token_path = base_dir.clone();
+        token_path.push("tokens.txt");
+
+        let mut data_dir = base_dir.clone();
+        data_dir.push("espeak-ng-data");
+
+        match &self.r#type {
+            SupportedTTSType::Vits => {
+                let mut model_path = base_dir.clone();
+                model_path.push("en_US-libritts_r-medium.onnx");
+                Ok(TTSModelConfig {
+                    model: Some(
+                        model_path
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get model path"))?,
+                    ),
+                    tokens: Some(
+                        token_path
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get token path"))?,
+                    ),
+                    data_dir: Some(
+                        data_dir
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get data dir"))?,
+                    ),
+                    noise_scale: 0.667,
+                    noise_scale_w: 0.8,
+                    length_scale: 1.0,
+                    dict_dir: None,
+                    lexicon: None,
+                    r#type: SupportedTTSType::Vits,
+                })
+            }
+            SupportedTTSType::Matcha => {
+                // Matcha requires an acoustic model and a vocoder (e.g., Vocos)
+                let mut acoustic_path = base_dir.clone();
+                acoustic_path.push("model.onnx");
+                let mut vocoder_path = base_dir.clone();
+                vocoder_path.push("vocos.onnx");
+
+                Ok(TTSModelConfig {
+                    model: Some(
+                        acoustic_path
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get acoustic path"))?,
+                    ), // or map to acoustic field
+                    tokens: Some(
+                        token_path
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get model path"))?,
+                    ),
+                    data_dir: Some(
+                        data_dir
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get model path"))?,
+                    ),
+                    noise_scale: 0.667,
+                    noise_scale_w: 0.8,
+                    length_scale: 1.0,
+                    dict_dir: None,
+                    lexicon: None,
+                    r#type: SupportedTTSType::Matcha,
+                })
+            }
+            SupportedTTSType::Kokoro => {
+                let mut model_path = base_dir.clone();
+                model_path.push("model.onnx");
+                Ok(TTSModelConfig {
+                    model: Some(
+                        model_path
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get model path"))?,
+                    ),
+                    tokens: Some(
+                        token_path
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get model path"))?,
+                    ),
+                    data_dir: Some(
+                        data_dir
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get model path"))?,
+                    ),
+                    noise_scale: 0.667,
+                    noise_scale_w: 0.8,
+                    length_scale: 1.0,
+                    dict_dir: None,
+                    lexicon: None,
+                    r#type: SupportedTTSType::Kokoro,
+                })
+            }
+            SupportedTTSType::Kitten => {
+                let mut model_path = base_dir.clone();
+                model_path.push("model.onnx");
+                Ok(TTSModelConfig {
+                    model: Some(
+                        model_path
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get model path"))?,
+                    ),
+                    tokens: Some(
+                        token_path
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get model path"))?,
+                    ),
+                    data_dir: Some(
+                        data_dir
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get model path"))?,
+                    ),
+                    noise_scale: 0.667,
+                    noise_scale_w: 0.8,
+                    length_scale: 1.0,
+                    dict_dir: None,
+                    lexicon: None,
+                    r#type: SupportedTTSType::Kitten,
+                })
+            }
+            SupportedTTSType::Supertonic => {
+                let mut model_path = base_dir.clone();
+                model_path.push("model.onnx");
+                Ok(TTSModelConfig {
+                    model: Some(
+                        model_path
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get model path"))?,
+                    ),
+                    tokens: Some(
+                        token_path
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get model path"))?,
+                    ),
+                    data_dir: Some(
+                        data_dir
+                            .into_string()
+                            .map_err(|_| anyhow!("Failed to get model path"))?,
+                    ),
+                    noise_scale: 0.667,
+                    noise_scale_w: 0.8,
+                    length_scale: 1.0,
+                    dict_dir: None,
+                    lexicon: None,
+                    r#type: SupportedTTSType::Supertonic,
+                })
+            }
+        }
+    }
+}
 #[derive(Deserialize)]
 struct GithubAsset {
     name: String,
@@ -109,209 +264,73 @@ pub struct TTSModelConfig {
     pub r#type: SupportedTTSType,
 }
 
-impl TryInto<OfflineTtsVitsModelConfig> for TTSModelConfig {
-    type Error = crate::util::Error;
+impl TryInto<OfflineTtsConfig> for TTSModelConfig {
+    type Error = crate::util::CommandError;
 
-    fn try_into(self) -> Result<OfflineTtsVitsModelConfig, Self::Error> {
-        if self.r#type != SupportedTTSType::Vits {
-            return Err(Error("Invalid TTS type for VITS config".into()));
-        }
-        Ok(OfflineTtsVitsModelConfig {
-            model: self.model,
-            lexicon: self.lexicon,
-            tokens: self.tokens,
-            data_dir: self.data_dir,
-            noise_scale: self.noise_scale,
-            noise_scale_w: self.noise_scale_w,
-            length_scale: self.length_scale,
-            dict_dir: self.dict_dir,
-        })
-    }
-}
+    fn try_into(self) -> Result<OfflineTtsConfig, Self::Error> {
+        let num_threads = std::thread::available_parallelism()
+            .map_err(|_| anyhow!("could not get thread count for tts generation"))?
+            .get() as i32;
+        Ok(OfflineTtsConfig {
+            model: match self.r#type {
+                SupportedTTSType::Vits => OfflineTtsModelConfig {
+                    vits: OfflineTtsVitsModelConfig {
+                        model: self.model,
+                        lexicon: self.lexicon,
+                        tokens: self.tokens,
+                        data_dir: self.data_dir,
+                        noise_scale: self.noise_scale,
+                        noise_scale_w: self.noise_scale_w,
+                        length_scale: self.length_scale,
+                        dict_dir: self.dict_dir,
+                    },
 
-pub fn get_model_config(
-    base_dir: &Path,
-    r#type: SupportedTTSType,
-) -> CommandResult<TTSModelConfig> {
-    let base_dir = base_dir.to_path_buf();
-
-    let mut token_path = base_dir.clone();
-    token_path.push("tokens.txt");
-
-    let mut data_dir = base_dir.clone();
-    data_dir.push("espeak-ng-data");
-
-    match r#type {
-        SupportedTTSType::Vits => {
-            let mut model_path = base_dir.clone();
-            model_path.push("en_US-libritts_r-medium.onnx");
-            Ok(TTSModelConfig {
-                model: Some(
-                    model_path
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                tokens: Some(
-                    token_path
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                data_dir: Some(
-                    data_dir
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                noise_scale: 0.667,
-                noise_scale_w: 0.8,
-                length_scale: 1.0,
-                dict_dir: None,
-                lexicon: None,
-                r#type: SupportedTTSType::Vits,
-            })
-        }
-        SupportedTTSType::Matcha => {
-            // Matcha requires an acoustic model and a vocoder (e.g., Vocos)
-            let mut acoustic_path = base_dir.clone();
-            acoustic_path.push("model.onnx");
-            let mut vocoder_path = base_dir.clone();
-            vocoder_path.push("vocos.onnx");
-
-            Ok(TTSModelConfig {
-                model: Some(
-                    acoustic_path
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get acoustic path"))?,
-                ), // or map to acoustic field
-                tokens: Some(
-                    token_path
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                data_dir: Some(
-                    data_dir
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                noise_scale: 0.667,
-                noise_scale_w: 0.8,
-                length_scale: 1.0,
-                dict_dir: None,
-                lexicon: None,
-                r#type: SupportedTTSType::Matcha,
-            })
-        }
-        SupportedTTSType::Kokoro => {
-            let mut model_path = base_dir.clone();
-            model_path.push("model.onnx");
-            Ok(TTSModelConfig {
-                model: Some(
-                    model_path
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                tokens: Some(
-                    token_path
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                data_dir: Some(
-                    data_dir
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                noise_scale: 0.667,
-                noise_scale_w: 0.8,
-                length_scale: 1.0,
-                dict_dir: None,
-                lexicon: None,
-                r#type: SupportedTTSType::Kokoro,
-            })
-        }
-        SupportedTTSType::Kitten => {
-            let mut model_path = base_dir.clone();
-            model_path.push("model.onnx");
-            Ok(TTSModelConfig {
-                model: Some(
-                    model_path
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                tokens: Some(
-                    token_path
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                data_dir: Some(
-                    data_dir
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                noise_scale: 0.667,
-                noise_scale_w: 0.8,
-                length_scale: 1.0,
-                dict_dir: None,
-                lexicon: None,
-                r#type: SupportedTTSType::Kitten,
-            })
-        }
-        SupportedTTSType::Supertonic => {
-            let mut model_path = base_dir.clone();
-            model_path.push("model.onnx");
-            Ok(TTSModelConfig {
-                model: Some(
-                    model_path
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                tokens: Some(
-                    token_path
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                data_dir: Some(
-                    data_dir
-                        .into_string()
-                        .map_err(|_| anyhow!("Failed to get model path"))?,
-                ),
-                noise_scale: 0.667,
-                noise_scale_w: 0.8,
-                length_scale: 1.0,
-                dict_dir: None,
-                lexicon: None,
-                r#type: SupportedTTSType::Supertonic,
-            })
-        }
-    }
-}
-
-impl TryInto<OfflineTtsMatchaModelConfig> for TTSModelConfig {
-    type Error = crate::util::Error;
-    fn try_into(self) -> Result<OfflineTtsMatchaModelConfig, Self::Error> {
-        if self.r#type != SupportedTTSType::Matcha {
-            return Err(Error("Expected Matcha TTS type".into()));
-        }
-        Ok(OfflineTtsMatchaModelConfig {
-            acoustic_model: self.model,
-            tokens: self.tokens,
-            data_dir: self.data_dir,
-            lexicon: self.lexicon,
-            dict_dir: self.dict_dir,
-            ..Default::default()
-        })
-    }
-}
-
-impl TryInto<OfflineTtsKokoroModelConfig> for TTSModelConfig {
-    type Error = crate::util::Error;
-    fn try_into(self) -> Result<OfflineTtsKokoroModelConfig, Self::Error> {
-        if self.r#type != SupportedTTSType::Kokoro {
-            return Err(Error("Expected Kokoro TTS type".into()));
-        }
-        Ok(OfflineTtsKokoroModelConfig {
-            model: self.model,
-            tokens: self.tokens,
-            data_dir: self.data_dir,
-            lexicon: self.lexicon,
+                    debug: true,
+                    ..Default::default()
+                },
+                SupportedTTSType::Kitten => OfflineTtsModelConfig {
+                    kitten: OfflineTtsKittenModelConfig {
+                        model: self.model,
+                        tokens: self.tokens,
+                        voices: self.dict_dir, // recheck this
+                        data_dir: self.data_dir,
+                        length_scale: self.length_scale,
+                    },
+                    ..Default::default()
+                },
+                SupportedTTSType::Matcha => OfflineTtsModelConfig {
+                    matcha: OfflineTtsMatchaModelConfig {
+                        acoustic_model: self.model,
+                        tokens: self.tokens,
+                        data_dir: self.data_dir,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                SupportedTTSType::Kokoro => OfflineTtsModelConfig {
+                    kokoro: OfflineTtsKokoroModelConfig {
+                        model: self.model,
+                        tokens: self.tokens,
+                        data_dir: self.data_dir,
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                SupportedTTSType::Supertonic => OfflineTtsModelConfig {
+                    supertonic: OfflineTtsSupertonicModelConfig {
+                        // model: self.model,
+                        ..Default::default() // vocoder: self.,
+                                             // lexicon: todo!(),
+                                             // tokens: todo!(),
+                                             // data_dir: todo!(),
+                                             // noise_scale: todo!(),
+                                             // length_scale: todo!(),
+                                             // dict_dir: todo!(),
+                    },
+                    num_threads,
+                    ..Default::default()
+                },
+            },
             ..Default::default()
         })
     }
@@ -319,6 +338,15 @@ impl TryInto<OfflineTtsKokoroModelConfig> for TTSModelConfig {
 
 pub struct ModelManager;
 impl ModelManager {
+    #[instrument]
+    pub async fn get_model(
+        id: u32,
+        cached_online_models: &Arc<Mutex<HashMap<u32, Model>>>,
+    ) -> CommandResult<Model> {
+        let cached_online_models = cached_online_models.lock().await;
+        // let model = cached_online_models.get(&id).ok_or(Err(Error("Failed to get TTS model".to_owned())))?
+        todo!()
+    }
     #[instrument]
     async fn get_models(
         token: &str,
@@ -345,7 +373,6 @@ impl ModelManager {
                     info!("{}", e);
                     anyhow!("Could not download model list.")
                 })?
-
                 .error_for_status()
                 .map_err(|e| {
                     info!("Failed to get HTTP request: {}", e);

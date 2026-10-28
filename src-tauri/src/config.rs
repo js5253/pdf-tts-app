@@ -16,7 +16,7 @@ pub struct TtsJobConfig {
     pub output_dir: PathBuf,
     pub start_page: u32,
     /// sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html
-    pub voice: String,
+    pub voice_id: u32,
     pub speed: f32,
     pub combine_pages: bool,
     /// for voices that have multiple speakers, pass a speaker_id.

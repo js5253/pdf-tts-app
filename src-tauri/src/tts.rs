@@ -1,16 +1,15 @@
 use std::{fs, time::Duration};
 
-use crate::model_manager::SupportedTTSType;
+use crate::model_manager::{ModelManager, SupportedTTSType};
 use crate::{
     config::{self},
-    model_manager::get_model_config,
     recents::RecentDoc,
     text_extraction::get_page_contents,
 };
 use crate::{util::CommandResult, AppState, TtsGenerationProgress};
 use anyhow::{anyhow, Context};
 use log::info;
-use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig};
+use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsModelConfig};
 use tokio::time::Instant;
 use tracing::instrument;
 use uuid::Uuid;
@@ -30,8 +29,9 @@ pub async fn run_job(
     if fs::read_dir("out").is_err() {
         fs::create_dir("out").context("Failed to create output directory")?;
     }
+    let model = ModelManager::get_model(job.voice_id, &state.cached_online_models).await?;
 
-    let current_path = state.app_dir.clone().join("tts/").join(&job.voice);
+    let current_path = state.app_dir.clone().join(format!("tts/{}", model.id));
     println!("{:?}", current_path);
     // let current_path = Path::new();
     let mut dir = fs::read_dir(&current_path).context(format!(
@@ -41,24 +41,12 @@ pub async fn run_job(
     if dir.next().is_none() {
         return Err(anyhow!("Could not find a TTS model").into());
     }
-    let config = OfflineTtsConfig {
-        model: sherpa_onnx::OfflineTtsModelConfig {
-            vits: get_model_config(&current_path, SupportedTTSType::Vits)?
-                .try_into()
-                .map_err(|_| anyhow!("Failed to get model config"))?,
-            num_threads: std::thread::available_parallelism()
-                .map_err(|_| anyhow!("could not get thread count for tts generation"))?
-                .get() as i32,
-            debug: true,
-            ..Default::default()
-        },
-        ..Default::default()
-    };
-    dbg!("{}", &config);
-    let tts = OfflineTts::create(&config).ok_or(anyhow!(
-        "Could not create TTS Engine with config {:?}",
-        config
-    ))?;
+    let config = model.get_config(&state.app_dir).unwrap().try_into()?;
+    let tts = OfflineTts::create(&config).unwrap();
+    // let tts = OfflineTts::create(model.get_config(&config)).ok_or(anyhow!(
+    //     "Could not create TTS Engine with config {:?}",
+    //     config
+    // ))?;
     let id: String = Uuid::new_v4().into();
     let gen_config = GenerationConfig {
         sid: job.speaker_id as i32,

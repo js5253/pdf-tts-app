@@ -67,7 +67,7 @@ export type TtsJobConfig = {
 	output_dir: string,
 	start_page: number,
 	/**  sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html */
-	voice: string,
+	voice_id: number,
 	speed: number | null,
 	combine_pages: boolean,
 	/**  for voices that have multiple speakers, pass a speaker_id. */

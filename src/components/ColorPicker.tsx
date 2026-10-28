@@ -6,8 +6,9 @@ type ColorPickerInterface = {
 }
 
 export const ColorPicker = ({color, selected = false}: ColorPickerInterface) => {
+    console.log(color)
     return (
-        <div class={classNames(`rounded-full w-12 h-12 bg-${color} hover:brightness-50`, selected && 'outline outline-2 outline-offset-3')}></div>
+        <div class={classNames(`rounded-full w-12 h-12 bg-${color} outline outline-gray-200 hover:brightness-50`, selected && 'outline outline-2 outline-offset-3')}></div>
 
     )
 }

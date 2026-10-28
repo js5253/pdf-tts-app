@@ -8,8 +8,9 @@ import { SHERPA_MODEL_ADDRESS, translateSpectaToSolidResource } from "../util";
 import { TTSVoiceManager } from "../components/TTSVoiceManager";
 import { IoInformation, IoInformationCircle } from "solid-icons/io";
 import { ColorPicker } from "../components/ColorPicker";
+import { useSettings } from "../context/SettingsContext";
 const Settings = () => {
-    const [config] = useConfig();
+    const config = useSettings();
     const [models, { refetch: refetchModels }] = translateSpectaToSolidResource(commands.getDownloadedModels)
     const [dataDir] = createResource<string>(appDataDir)
     const reloadTtsModels = async () => {
@@ -34,10 +35,10 @@ const Settings = () => {
             <div class="flex-col gap-2">
                 <h1 class="text-xl">Color & Theming</h1>
                 <div class="flex flex-row gap-2">
-                    <ColorPicker selected color="purple-500" />
-                    <ColorPicker color="red-500" />
+                    <ColorPicker selected color="fuchsia-500" />
+                    <ColorPicker color="teal-500" />
                     <ColorPicker color="green-500" />
-                    <ColorPicker color="orange-500" />
+                    <ColorPicker color="red-500"    />
                     <ColorPicker color="blue-500" />
                 </div>
 
@@ -49,15 +50,15 @@ const Settings = () => {
                     <label for="sameOutputDirectory">Put the output files in the same directory as the input file.</label>
                 </div>
                 <div>
-                    <input type="number" name="speed" value={config()?.speed!} />
+                    <input type="number" name="speed" value={config.speed} />
                     <label for="speed">Speed</label>
                 </div>
                 <div>
-                    <input type="checkbox" name="combinePages" value={String(config()?.combine_pages)} />
+                    <input type="checkbox" name="combinePages" value={String(config.combine_pages)} />
                     <label for="combinePages">Combine Pages</label>
                 </div>
                 <div>
-                    <input type="number" name="speakerId" value={config()?.speaker_id} />
+                    <input type="number" name="speakerId" value={config.speaker_id} />
                     <label for="speakerId">Speaker ID</label>
                 </div>
                 <Button onClick={() => { }}>Save</Button>
@@ -65,13 +66,13 @@ const Settings = () => {
             <div class="flex flex-col gap-2">
                 <h2 class="text-xl">TTS Voice Manager</h2>
                 <ul class="flex flex-col gap-2">
-                    <h3>Downloaded</h3>
+                    <h3 class="text-lg">Downloaded</h3>
                     <For each={models()} fallback={<p class="flex flex-row items-cente gap-1"><IoInformationCircle />No Models Downloaded.</p>}>
                         {(model) => <li data-index={model} class={classNames("shadow bg-green-50 px-4 py-2 bg-gray-200 rounded flex flex-row items-between justify-between", { "font-bold": config().voice == model })}>{model}
 
-                            <Show when={config().voice !== model}><Button onClick={() => makeDefaultModel(model)}>Make Default</Button></Show></li>}
+                            <Show when={config.voice !== model}><Button onClick={() => makeDefaultModel(model)}>Make Default</Button></Show></li>}
                     </For>
-                    <h3>Get TTS Voices</h3>
+                    <h3 class="text-lg">Get TTS Voices</h3>
                 </ul>
             </div> </> : <p></p>}
             <TTSVoiceManager />
