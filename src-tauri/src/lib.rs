@@ -5,14 +5,13 @@ use specta_typescript::Typescript;
 use std::{
     collections::HashMap,
     env,
-    fmt::Display,
     fs::{self},
-    path::{Path, PathBuf},
-    sync::Arc,
+    path::{PathBuf},
+    sync::{Arc, Mutex},
 };
-use tauri::{async_runtime, Manager};
+use tauri::{Manager};
 use tauri_specta::{collect_commands, Builder};
-use tokio::sync::{Mutex, mpsc, oneshot};
+use tokio::sync::{mpsc};
 use tracing::info;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -40,34 +39,16 @@ use crate::{
     model_manager::{download_model, get_online_models},
 };
 
-#[derive(Serialize, Deserialize, Debug, specta::Type)]
-struct CompletedOnboardingRequest(bool);
-
-#[derive(Clone, Debug, Serialize, specta::Type)]
-#[serde(
-    rename_all = "camelCase",
-    rename_all_fields = "camelCase",
-    tag = "event",
-    content = "data"
-)]
-enum TtsGenerationProgress {
-    InProgress(f32),
-    Finished,
-}
-#[derive(Clone, Default, Serialize, specta::Type)]
-#[serde(rename_all = "camelCase")]
-struct HasCompletedOnboarding;
-#[derive(Debug)]
 struct AppState {
-    settings: Arc<Mutex<TtsAppConfig>>,
-    completed_onboarding: Arc<Mutex<bool>>,
-    recent_tts: Arc<Mutex<Vec<RecentDoc>>>,
+    settings: Mutex<TtsAppConfig>,
+    completed_onboarding: Mutex<bool>,
+    recent_tts: Mutex<Vec<RecentDoc>>,
     downloaded_models: Arc<Mutex<Vec<Model>>>,
-    cached_online_models: Arc<Mutex<HashMap<u32, Model>>>,
+    cached_online_models: Mutex<HashMap<u32, Model>>,
     download_progress: Arc<Mutex<Vec<DownloadManagerProgress>>>,
     gh_access_token: &'static str,
     app_dir: PathBuf,
-    download_manager: mpsc::Sender<DownloadRequest>
+    download_manager: mpsc::Sender<DownloadRequest>,
 }
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -128,11 +109,12 @@ pub fn run() {
                 fs::create_dir_all(&output_path).context("Failed to create output path.")?;
             }
             let settings = TtsAppConfig::load_or_default(&app_dir);
-
-            let cache: Arc<Mutex<HashMap<u32, Model>>> = Arc::new(Mutex::new(HashMap::new()));
-            let models: Arc<Mutex<Vec<Model>>> = Arc::new(Mutex::new(Vec::new()));
+            let cache_mutex = Mutex::new(HashMap::new());
+            let model_arc: Arc<Mutex<Vec<_>>> = Arc::new(Mutex::new(Vec::new()));
             let value = app_dir.clone();
-            tauri::async_runtime::spawn(async move { download_manager::download_manager(&value, rx).await });
+            let download_handle = Arc::clone(&model_arc);
+            let model_mutex = Arc::clone(&model_arc);
+            tauri::async_runtime::spawn(async move { download_manager::download_manager(&value, download_handle, rx).await });
 
             // async_runtime::block_on(async {
             //     let cached = load_cached_models(&mut model_path)
@@ -144,11 +126,11 @@ pub fn run() {
             // let _ = futures::executor::block_on(async {ModelDownloader::load_downloaded_models(Arc::clone(&cache), &model_path.to_path_buf()).await});
             // recheck this to make sure passing app.state is fine
             app.manage(AppState {
-                completed_onboarding: Arc::new(Mutex::new(false)),
-                settings: Arc::new(Mutex::new(settings)),
-                recent_tts: Arc::new(Mutex::new(Vec::new())),
-                cached_online_models: cache,
-                downloaded_models: models,
+                completed_onboarding: Mutex::new(false),
+                settings: Mutex::new(settings),
+                recent_tts: Mutex::new(Vec::new()),
+                cached_online_models: cache_mutex,
+                downloaded_models: model_mutex,
                 download_progress: Arc::new(Mutex::new(Vec::new())),
                 gh_access_token,
                 app_dir,
@@ -162,6 +144,7 @@ pub fn run() {
             get_config,
             get_online_models,
             set_config,
+            get_download_manager_progress,
             get_recent_docs,
             get_completed_onboarding,
             set_completed_onboarding,

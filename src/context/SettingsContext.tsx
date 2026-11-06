@@ -2,20 +2,25 @@ import { createContext, ParentProps, useContext } from "solid-js";
 import { commands, TtsAppConfig } from "../bindings";
 import { translateSpectaToSolidResource } from "../util";
 interface SettingsContextProps{
-    config: TtsAppConfig
+    config: TtsAppConfig,
+    updateConfig: () => void
 }
 const SettingsContext = createContext<SettingsContextProps>();
 const SettingsContextProvider = (props: ParentProps) => {
-    const [config] = translateSpectaToSolidResource(commands.getConfig);
-    const updateConfig = () => {
-
+    const [config, {refetch: refetchConfig}] = translateSpectaToSolidResource(commands.getConfig);
+    const updateConfig = async (newConfig: Partial<TtsAppConfig>) => {
+        await commands.setConfig({
+            ...config,
+            ...newConfig
+        })
+        refetchConfig();
     }
     return <SettingsContext.Provider value={
-        {config, updateConfig}
+        {config, updateConfig} as SettingsContextProps
     }>{props.children}</SettingsContext.Provider>
 }
 const useSettings = () => {
-    const { config } = useContext(SettingsContext);
+    const { config, updateConfig } = useContext(SettingsContext);
 
     return { config }
 }

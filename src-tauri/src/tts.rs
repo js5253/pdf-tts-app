@@ -6,15 +6,28 @@ use crate::{
     recents::RecentDoc,
     text_extraction::get_page_contents,
 };
-use crate::{util::CommandResult, AppState, TtsGenerationProgress};
+use crate::{util::CommandResult, AppState};
 use anyhow::{anyhow, Context};
 use log::info;
-use sherpa_onnx::{GenerationConfig, OfflineTts, OfflineTtsConfig, OfflineTtsModelConfig};
+use serde::Serialize;
+use sherpa_onnx::{GenerationConfig, OfflineTts};
 use tokio::time::Instant;
 use tracing::instrument;
 use uuid::Uuid;
 
-#[instrument(skip(state, progress_reader), err)]
+#[derive(Clone, Debug, Serialize, specta::Type)]
+#[serde(
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase",
+    tag = "event",
+    content = "data"
+)]
+pub enum TtsGenerationProgress {
+    InProgress(f32),
+    Finished,
+}
+
+#[instrument(skip(state, progress_reader))]
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn run_job(
@@ -29,11 +42,18 @@ pub async fn run_job(
     if fs::read_dir("out").is_err() {
         fs::create_dir("out").context("Failed to create output directory")?;
     }
-    let model = ModelManager::get_model(job.voice_id, &state.cached_online_models).await?;
+    let model = {
+        let downloaded_models = state
+            .downloaded_models
+            .lock()
+            .map_err(|_| anyhow!("Failed to lock downloaded models"))?
+            .clone();
+        let m = ModelManager::get_model(job.voice_id, &downloaded_models).await;
 
+        m
+    }?;
     let current_path = state.app_dir.clone().join(format!("tts/{}", model.id));
     println!("{:?}", current_path);
-    // let current_path = Path::new();
     let mut dir = fs::read_dir(&current_path).context(format!(
         "Could not read the TTS model directory: {:?}",
         current_path
@@ -41,12 +61,9 @@ pub async fn run_job(
     if dir.next().is_none() {
         return Err(anyhow!("Could not find a TTS model").into());
     }
-    let config = model.get_config(&state.app_dir).unwrap().try_into()?;
-    let tts = OfflineTts::create(&config).unwrap();
-    // let tts = OfflineTts::create(model.get_config(&config)).ok_or(anyhow!(
-    //     "Could not create TTS Engine with config {:?}",
-    //     config
-    // ))?;
+    let config = model.get_config(&state.app_dir)?;
+    let tts =
+        OfflineTts::create(&config.try_into()?).ok_or(anyhow!("Failed to create offline TTS"))?;
     let id: String = Uuid::new_v4().into();
     let gen_config = GenerationConfig {
         sid: job.speaker_id as i32,
@@ -87,17 +104,20 @@ pub async fn run_job(
     info!("Saving to: {:?}", file_path);
     let saved = audio.save(file_path.as_str());
     info!("Job Done: status {saved}");
-    // if saved {
-    //     {
-    //         {
-    //             let mut data = state.recent_tts.lock().await;
-    //             data.push(RecentDoc {
-    //                 name: id.clone(),
-    //                 path: file_path.clone(),
-    //                 id: id.clone(),
-    //             });
-    //         }
-    //     }
-    // }
+    if saved {
+        {
+            {
+                let mut data = state
+                    .recent_tts
+                    .lock()
+                    .map_err(|_| anyhow!("Failed to lock recents"))?;
+                data.push(RecentDoc {
+                    name: id.clone(),
+                    path: file_path.clone(),
+                    id: id.clone(),
+                });
+            }
+        }
+    }
     Ok(())
 }

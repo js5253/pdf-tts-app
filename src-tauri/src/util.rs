@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, sync::PoisonError};
 
 use serde::Serialize;
 
@@ -21,6 +21,7 @@ impl Display for CommandError {
         write!(f, "{:?}", self.0)
     }
 }
+
 impl<E> From<E> for CommandError
 where
     E: Into<anyhow::Error>,

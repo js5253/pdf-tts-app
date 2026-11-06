@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::{AppState, util::CommandResult, Model};
-
+use anyhow::anyhow;
 #[derive(Deserialize, Serialize, specta::Type, Debug, Clone)]
 pub struct DownloadManagerProgress {
     name: String,
@@ -12,13 +12,13 @@ pub struct DownloadManagerProgress {
 #[tauri::command]
 #[specta::specta]
 pub async fn get_downloaded_models(state: tauri::State<'_, AppState>) -> CommandResult<Vec<Model>> {
-    Ok(state.downloaded_models.lock().await.clone())
+    let data = {
+        let models = state.downloaded_models.lock().map_err(|_| anyhow!("Failed to lock downloaded models"))?;
+        models.to_owned()
+    };
+    Ok(data)
 }
-#[tauri::command]
-#[specta::specta]
-pub async fn get_download_manager_progress(state: tauri::State<'_, AppState>) -> CommandResult<Vec<DownloadManagerProgress>>{
-    Ok(state.download_progress.lock().await.clone())
-}
+
 
 #[tauri::command]
 #[specta::specta]
@@ -26,6 +26,13 @@ pub async fn set_default_model(
     model_name: String,
     state: tauri::State<'_, AppState>,
 ) -> CommandResult<()> {
-    state.settings.lock().await.voice = model_name;
+    let models = {
+    state.settings.lock().map_err(|_| anyhow!("Failed to lock settings"))?.voice = model_name;
+    };
     Ok(())
+}
+#[tauri::command]
+#[specta::specta]
+pub async fn get_download_manager_progress(state: tauri::State<'_, AppState>) -> CommandResult<Vec<DownloadManagerProgress>>{
+    Ok(state.download_progress.lock().map_err(|_| anyhow!("ABC"))?.clone())
 }

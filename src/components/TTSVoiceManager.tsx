@@ -1,4 +1,4 @@
-import { createResource, createSignal, ErrorBoundary, For, onMount } from "solid-js";
+import { createEffect, createResource, createSignal, ErrorBoundary, For, onMount } from "solid-js";
 import { commands, HasCompletedOnboarding } from "../bindings";
 import { SHERPA_MODEL_ADDRESS, translateSpectaToSolidResource } from "../util";
 import { IoArrowDown, IoDownload, IoInformationCircle, IoPlay, IoWarning } from "solid-icons/io";
@@ -12,9 +12,9 @@ export const TTSVoiceManager = () => {
     const [dataDir] = createResource<string>(appDataDir);
     const [isExpanded, setIsExpanded] = createSignal<boolean>(false);
     const [search, setSearch] = createSignal("");
-    onMount(() => {
+    createEffect(() => {
         if (!originalModels()) return;
-        setSearch(originalModels())
+        setModels(originalModels())
     })
     const updateSearch = (e) => {
         setSearch(e.target.value);

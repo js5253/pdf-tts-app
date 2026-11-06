@@ -3906,6 +3906,7 @@ dependencies = [
  "dotenvy_macro",
  "env_logger",
  "futures",
+ "futures-util",
  "glam",
  "image",
  "log",

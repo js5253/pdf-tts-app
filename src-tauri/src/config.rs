@@ -3,12 +3,20 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{anyhow};
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter};
 use tracing::{info, instrument};
 
-use crate::{AppState, util::CommandResult, CompletedOnboardingRequest, HasCompletedOnboarding};
+use crate::{util::CommandResult, AppState};
+
+#[derive(Serialize, Deserialize, Debug, specta::Type)]
+pub struct CompletedOnboardingRequest(bool);
+
+#[derive(Clone, Default, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct HasCompletedOnboarding;
+// #[derive(Debug)]
 
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 pub struct TtsJobConfig {
@@ -37,7 +45,7 @@ pub struct TtsAppConfig {
     pub speed: f32,
     pub combine_pages: bool,
     pub speaker_id: u32,
-    pub base_color: String
+    pub base_color: String,
 }
 
 // NOTE: APP CONFIG NEEDS TO BE MANAGED MORE CLEANLY BETWEEN UPDATES.
@@ -64,7 +72,10 @@ impl TtsAppConfig {
             match toml::from_str(config.as_str()) {
                 Ok(config) => config,
                 Err(err) => {
-                    info!("Failed to deserialize config content; using default. Error: ${}", err);
+                    info!(
+                        "Failed to deserialize config content; using default. Error: ${}",
+                        err
+                    );
                     TtsAppConfig::default(app_dir.to_path_buf(), app_dir.to_path_buf())
                 }
             }
@@ -78,7 +89,7 @@ impl TtsAppConfig {
                 combine_pages: true,
                 speaker_id: 1,
                 output_prefix: String::from("page_"),
-                base_color: String::from("green")
+                base_color: String::from("green"),
             };
             fs::write(config_path, toml::to_string(&config).unwrap()).unwrap();
 
@@ -89,11 +100,11 @@ impl TtsAppConfig {
 
 #[tauri::command]
 #[specta::specta]
-#[instrument]
+#[instrument(skip(state))]
 pub async fn get_config(state: tauri::State<'_, AppState>) -> CommandResult<TtsAppConfig> {
     // TODO: figure out best practice for returning data based on mutex
     let config: TtsAppConfig = {
-        let config = state.settings.lock().await;
+        let config = state.settings.lock().unwrap();
         config.clone()
     };
     Ok(config)
@@ -105,7 +116,7 @@ pub async fn set_config(
     config: TtsAppConfig,
     state: tauri::State<'_, AppState>,
 ) -> CommandResult<()> {
-    let mut state = state.settings.lock().await;
+    let mut state = state.settings.lock().unwrap();
     *state = config;
 
     app.emit("settings-changed", "").map_err(|_| anyhow!(""))?;
@@ -115,9 +126,9 @@ pub async fn set_config(
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_completed_onboarding(state: tauri::State<'_, AppState>,
-) -> CommandResult<bool> {
-    let completed = state.completed_onboarding.lock().await;
+pub async fn get_completed_onboarding(state: tauri::State<'_, AppState>) -> CommandResult<bool> {
+    
+    let completed = state.completed_onboarding.lock().map_err(|_| anyhow!("Could not get compelted onboarding"))?;
     Ok(*completed)
 }
 
@@ -126,9 +137,15 @@ pub async fn get_completed_onboarding(state: tauri::State<'_, AppState>,
 pub async fn set_completed_onboarding(
     request: CompletedOnboardingRequest,
     state: tauri::State<'_, AppState>,
-    onboarding_ch: tauri::ipc::Channel<HasCompletedOnboarding>) -> CommandResult<()> {
-    let mut completed = state.completed_onboarding.lock().await;
-    *completed = request.0;
-    let _ = onboarding_ch.send(HasCompletedOnboarding);
+    onboarding_ch: tauri::ipc::Channel<HasCompletedOnboarding>,
+) -> CommandResult<()> {
+     {
+        let mut completed = state
+            .completed_onboarding
+            .lock()
+            .map_err(|_| anyhow!("Failed to lock completed onboarding"))?;
+        *completed = request.0;
+    };
+    onboarding_ch.send(HasCompletedOnboarding);
     Ok(())
 }

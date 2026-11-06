@@ -16,15 +16,16 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
-    sync::Arc,
+    sync::{Arc, Mutex},
 };
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 use tracing::{info, instrument};
 
 const SHERPA_URL: &str = "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/tags/tts-models";
 
-pub async fn load_cached_models(data_path: &mut PathBuf) -> CommandResult<HashMap<u32, Model>> {
-    data_path.push("models.toml");
+pub async fn load_cached_models(data_path: &PathBuf) -> CommandResult<HashMap<u32, Model>> {
+    let mut model_path = data_path.clone();
+    model_path.push("models.toml");
     let contents = fs::read_to_string(data_path)?;
     let contents = contents.as_str();
     let models: HashMap<u32, Model> = toml::from_str(contents)?;
@@ -35,24 +36,36 @@ pub async fn load_cached_models(data_path: &mut PathBuf) -> CommandResult<HashMa
 #[specta::specta]
 #[instrument(skip(state))]
 pub async fn get_online_models(state: tauri::State<'_, AppState>) -> CommandResult<Vec<Model>> {
-    ModelManager::get_models(
-        state.gh_access_token,
-        &state.app_dir,
-        false,
-        Arc::clone(&state.cached_online_models),
-    )
-    .await
+    let mut models = {
+        let models = state
+            .cached_online_models
+            .lock()
+            .map_err(|_| anyhow!("Failed to lock online models"))?;
+        models.clone()
+    };
+    let result =
+        ModelManager::get_online_models(state.gh_access_token, &state.app_dir, false, &mut models).await;
+    result
 }
 #[tauri::command(async)]
 #[specta::specta]
 #[instrument(skip(state))]
 pub async fn download_model(model_id: u32, state: tauri::State<'_, AppState>) -> CommandResult<()> {
-    let downloaded_model = state.cached_online_models.lock().await;
-    let model = downloaded_model
-        .get(&model_id)
-        .ok_or(anyhow!("Could not find model in list"))?;
-    info!("Requested model download {:?}", model);
-    let _ = ModelManager::download_model(model, &state.download_manager).await;
+    let model = {
+        let downloaded_model = state
+            .cached_online_models
+            .lock()
+            .map_err(|_| anyhow!("Could not lock"))?;
+        let model = downloaded_model
+            .get(&model_id)
+            .ok_or(anyhow!("Could not find model in list"))?
+            .to_owned();
+        info!("Requested model download {:?}", model);
+        model
+    };
+    ModelManager::download_model(model, &state.download_manager)
+        .await
+        .unwrap();
 
     Ok(())
 }
@@ -339,22 +352,30 @@ impl TryInto<OfflineTtsConfig> for TTSModelConfig {
 pub struct ModelManager;
 impl ModelManager {
     #[instrument]
-    pub async fn get_model(
+    pub async fn get_model(id: u32, cached_online_models: &Vec<Model>) -> CommandResult<Model> {
+        let model = cached_online_models
+            .iter()
+            .find(|item| item.id == id)
+            .ok_or_else(|| anyhow!(""))?.to_owned();
+        Ok(model)
+    }
+
+    #[instrument]
+    pub async fn get_online_model(
         id: u32,
-        cached_online_models: &Arc<Mutex<HashMap<u32, Model>>>,
+        cached_online_models: &HashMap<u32, Model>,
     ) -> CommandResult<Model> {
-        let cached_online_models = cached_online_models.lock().await;
-        // let model = cached_online_models.get(&id).ok_or(Err(Error("Failed to get TTS model".to_owned())))?
-        todo!()
+        let model = cached_online_models.get(&id).unwrap();
+
+        Ok(model.to_owned())
     }
     #[instrument]
-    async fn get_models(
+    async fn get_online_models(
         token: &str,
         app_dir: &PathBuf,
         force_recheck: bool,
-        cached_online_models: Arc<Mutex<HashMap<u32, Model>>>,
+        cached_online_models: &mut HashMap<u32, Model>,
     ) -> CommandResult<Vec<Model>> {
-        let mut cached_online_models = cached_online_models.lock().await;
         if !cached_online_models.is_empty() && !force_recheck {
             info!("Using cached online models");
             let arr: Vec<Model> = cached_online_models.clone().into_values().collect();
@@ -398,7 +419,7 @@ impl ModelManager {
                         item.id,
                         Model {
                             name: item.name.clone(),
-                            url: item.url.clone(),
+                            url: item.browser_download_url.clone(),
                             id: item.id,
                             r#type,
                         },
@@ -414,11 +435,10 @@ impl ModelManager {
             Ok(arr)
         }
     }
-    async fn download_model(
-        model: &Model,
-        tx: &mpsc::Sender<DownloadRequest>,
-    ) -> CommandResult<()> {
+    async fn download_model(model: Model, tx: &mpsc::Sender<DownloadRequest>) -> CommandResult<()> {
+        // let model = model.lock().await;
         tx.send(DownloadRequest {
+            name: model.name.clone(),
             url: model.url.clone(),
         })
         .await?;

@@ -10,7 +10,7 @@ import { IoInformation, IoInformationCircle } from "solid-icons/io";
 import { ColorPicker } from "../components/ColorPicker";
 import { useSettings } from "../context/SettingsContext";
 const Settings = () => {
-    const config = useSettings();
+    const {config, updateConfig} = useSettings();
     const [models, { refetch: refetchModels }] = translateSpectaToSolidResource(commands.getDownloadedModels)
     const [dataDir] = createResource<string>(appDataDir)
     const reloadTtsModels = async () => {
@@ -28,22 +28,31 @@ const Settings = () => {
     // const onUpdateSetting = (key: string, value: any) => {
     //     setSettings(prev => ({...prev, [key]: value}))
     // }
-
+    const colors = [
+        "fuchsia-500",
+        "teal-500",
+        "green-500",
+        "red-500",
+        "blue-500"
+    ]
+    const updateColor = (color: string) => {
+        updateConfig({
+            baseColor: color
+        })
+    }
     return (
         <div class="w-[800px] bg-green-50 p-4 space-y-8">{config ? <>
             <Button onClick={() => openPath(dataDir() + '/out')}>Open Output Directory</Button>
-            <div class="flex-col gap-2">
+            <div class="flex-col gap-2 space-y-2">
                 <h1 class="text-xl">Color & Theming</h1>
-                <div class="flex flex-row gap-2">
-                    <ColorPicker selected color="fuchsia-500" />
-                    <ColorPicker color="teal-500" />
-                    <ColorPicker color="green-500" />
-                    <ColorPicker color="red-500"    />
-                    <ColorPicker color="blue-500" />
+                <div class="flex flex-row gap-4">
+                    <For each={colors}>
+                        {(item) => <ColorPicker onClick={() => updateColor(item)} color={item} />}
+                    </For>
                 </div>
 
             </div>
-            <div class="flex-col gap-2">
+            <div class="flex-col space-y-2">
                 <h1 class="text-xl">Default Options</h1>
                 <div>
                     <input type="checkbox" name="sameOutputDirectory" />

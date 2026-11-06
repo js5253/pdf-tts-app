@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
 
 use crate::{AppState, util::CommandResult};
@@ -12,7 +13,7 @@ pub struct RecentDoc {
 #[tauri::command]
 #[specta::specta]
 pub async fn get_recent_docs(state: tauri::State<'_, AppState>) -> CommandResult<Vec<RecentDoc>> {
-        let recents = state.recent_tts.lock().await;
+        let recents = state.recent_tts.lock().map_err(|_| anyhow!("Failed to lock recent docs mutex"))?;
         let recents = recents.clone();
     Ok(recents)
 }

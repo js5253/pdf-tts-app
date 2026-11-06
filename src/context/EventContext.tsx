@@ -3,12 +3,14 @@ import { HasCompletedOnboarding, TtsGenerationProgress } from "../bindings";
 import { Channel } from "@tauri-apps/api/core";
 interface EventContextProps {
     onHasCompletedOnboarding: Channel<HasCompletedOnboarding>,
-    onTtsGenerationProgressUpdate: Channel<TtsGenerationProgress>
+    onTtsGenerationProgressUpdate: Channel<TtsGenerationProgress>,
+    onModelDownloadProgressUpdate: Channel<ModelDownloadProgress>
 }
 const EventContext = createContext<EventContextProps>();
 const EventContextProvider = (props: ParentProps) => {
     const onHasCompletedOnboarding = new Channel<HasCompletedOnboarding>(); // this is probably an erroneous line
     const onTtsGenerationProgressUpdate = new Channel<TtsGenerationProgress>(); // this is probably an erroneous line
+    const onModelDownloadProgressUpdate = new Channel<ModelDownloadProgress>(); // this is probably an erroneous line
     return <EventContext.Provider value={
         {
             onHasCompletedOnboarding,
@@ -17,7 +19,7 @@ const EventContextProvider = (props: ParentProps) => {
     }>{props.children}</EventContext.Provider>
 }
 const useEventContext = () => {
-    const { onHasCompletedOnboarding, onTtsGenerationProgressUpdate } = useContext(EventContext);
+    const { onHasCompletedOnboarding, onTtsGenerationProgressUpdate, onModelDownloadProgressUpdate } = useContext(EventContext);
 
     return { onHasCompletedOnboarding, onTtsGenerationProgressUpdate }
 }

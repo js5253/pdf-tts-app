@@ -1,22 +1,26 @@
 import { openPath } from "@tauri-apps/plugin-opener"
 import { Button } from "../components/Button"
 import { appDataDir } from "@tauri-apps/api/path"
-import { createSignal, onMount } from "solid-js";
+import { createSignal, For, onMount } from "solid-js";
 import { useNavigate } from "@solidjs/router";
-import { IoPlay } from "solid-icons/io";
+import { IoPlay, IoStop } from "solid-icons/io";
 import { commands } from "../bindings";
+import { ProgressBar } from "../components/ProgressBar";
+import { translateSpectaToSolidResource } from "../util";
 
 export const ModelDownloader = () => {
-    const [downloadProgress, { refetch }] = commands.getDownloadManagerProgress();
+
+    const [downloadProgress] = translateSpectaToSolidResource(commands.getDownloadManagerProgress);
+        console.log("DOWNMAN:", downloadProgress())
     const onItemStop = () => {
         commands.stopModelDownload();
     }
     return (
         <div>
-            <h1>Download Manager</h1>
+            <h1 class="text-3xl">Download Manager</h1>
             <For each={downloadProgress()}>
-                {item => <li>
-                    <span>{item.name}</span> - <ProgressBar progress={item.progress} /> -
+                {item => <li class="bg-white-400 w-full">
+                    <span>{item.name}</span> - <ProgressBar progress={item.progress!} /> -
                     <button><IoStop /></button></li>
                 }
             </For>
