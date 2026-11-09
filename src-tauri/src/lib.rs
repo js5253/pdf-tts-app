@@ -22,6 +22,7 @@ mod recents;
 mod text_extraction;
 mod tts;
 mod util;
+mod tts_manager;
 use config::{
     get_completed_onboarding, get_config, set_completed_onboarding, set_config, TtsAppConfig,
 };
