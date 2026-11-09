@@ -104,7 +104,7 @@ impl TtsAppConfig {
 pub async fn get_config(state: tauri::State<'_, AppState>) -> CommandResult<TtsAppConfig> {
     // TODO: figure out best practice for returning data based on mutex
     let config: TtsAppConfig = {
-        let config = state.settings.lock().unwrap();
+        let config = state.settings.lock().await;
         config.clone()
     };
     Ok(config)
@@ -116,7 +116,7 @@ pub async fn set_config(
     config: TtsAppConfig,
     state: tauri::State<'_, AppState>,
 ) -> CommandResult<()> {
-    let mut state = state.settings.lock().unwrap();
+    let mut state = state.settings.lock().await;
     *state = config;
 
     app.emit("settings-changed", "").map_err(|_| anyhow!(""))?;
@@ -127,8 +127,7 @@ pub async fn set_config(
 #[tauri::command]
 #[specta::specta]
 pub async fn get_completed_onboarding(state: tauri::State<'_, AppState>) -> CommandResult<bool> {
-    
-    let completed = state.completed_onboarding.lock().map_err(|_| anyhow!("Could not get compelted onboarding"))?;
+    let completed = state.completed_onboarding.lock().await;
     Ok(*completed)
 }
 
@@ -143,7 +142,7 @@ pub async fn set_completed_onboarding(
         let mut completed = state
             .completed_onboarding
             .lock()
-            .map_err(|_| anyhow!("Failed to lock completed onboarding"))?;
+            .await;
         *completed = request.0;
     };
     onboarding_ch.send(HasCompletedOnboarding);

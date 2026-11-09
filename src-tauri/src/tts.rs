@@ -46,7 +46,7 @@ pub async fn run_job(
         let downloaded_models = state
             .downloaded_models
             .lock()
-            .map_err(|_| anyhow!("Failed to lock downloaded models"))?
+            .await
             .clone();
         let m = ModelManager::get_model(job.voice_id, &downloaded_models).await;
 
@@ -106,18 +106,10 @@ pub async fn run_job(
     info!("Job Done: status {saved}");
     if saved {
         {
-            {
-                let mut data = state
-                    .recent_tts
-                    .lock()
-                    .map_err(|_| anyhow!("Failed to lock recents"))?;
-                data.push(RecentDoc {
-                    name: id.clone(),
-                    path: file_path.clone(),
-                    id: id.clone(),
-                });
-            }
+            let mut data = state.recent_tts.blocking_lock();
+            data.push(RecentDoc { name: id.clone(), path: file_path.clone(), id });
         }
+        
     }
     Ok(())
 }

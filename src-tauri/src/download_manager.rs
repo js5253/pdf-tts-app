@@ -6,10 +6,9 @@ use image::EncodableLayout;
 use reqwest::Client;
 use tokio::{fs::File, io::AsyncWriteExt};
 use std::{
-    io::{Read, Write}, path::PathBuf, sync::{Arc, Mutex},
-};
+    io::{Read, Write}, path::PathBuf, sync::Arc};
 use tar::Archive;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 use tracing::{info, instrument};
 #[derive(Debug)]
 pub struct DownloadRequest {

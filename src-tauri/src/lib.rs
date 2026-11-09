@@ -7,14 +7,13 @@ use std::{
     env,
     fs::{self},
     path::{PathBuf},
-    sync::{Arc, Mutex},
 };
 use tauri::{Manager};
 use tauri_specta::{collect_commands, Builder};
-use tokio::sync::{mpsc};
+use tokio::sync::{mpsc, Mutex};
 use tracing::info;
+use std::sync::Arc;
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
-
 mod config;
 mod download_manager;
 mod model_manager;

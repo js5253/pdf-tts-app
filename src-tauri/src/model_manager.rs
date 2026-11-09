@@ -15,10 +15,10 @@ use sherpa_onnx::{
 use std::{
     collections::HashMap,
     fs,
+    sync::Arc,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
 };
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, Mutex};
 use tracing::{info, instrument};
 
 const SHERPA_URL: &str = "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/tags/tts-models";
@@ -40,7 +40,7 @@ pub async fn get_online_models(state: tauri::State<'_, AppState>) -> CommandResu
         let models = state
             .cached_online_models
             .lock()
-            .map_err(|_| anyhow!("Failed to lock online models"))?;
+            .await;
         models.clone()
     };
     let result =
@@ -55,7 +55,7 @@ pub async fn download_model(model_id: u32, state: tauri::State<'_, AppState>) ->
         let downloaded_model = state
             .cached_online_models
             .lock()
-            .map_err(|_| anyhow!("Could not lock"))?;
+            .await;
         let model = downloaded_model
             .get(&model_id)
             .ok_or(anyhow!("Could not find model in list"))?
@@ -305,6 +305,7 @@ impl TryInto<OfflineTtsConfig> for TTSModelConfig {
                     kitten: OfflineTtsKittenModelConfig {
                         model: self.model,
                         tokens: self.tokens,
+                        lexicon: todo!("Add Lexicon DIR!"),
                         voices: self.dict_dir, // recheck this
                         data_dir: self.data_dir,
                         length_scale: self.length_scale,

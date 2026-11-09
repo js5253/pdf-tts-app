@@ -24,6 +24,10 @@ export const ModelDownloader = () => {
                     <button><IoStop /></button></li>
                 }
             </For>
+            {downloadProgress()?.length > 0 && <><h2 class="font-xl text-gray-400">
+                    No Downloads In Progress
+                </h2></>
+                }
         </div>
     )
 }
