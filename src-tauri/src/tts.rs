@@ -22,7 +22,7 @@ use uuid::Uuid;
     content = "data"
 )]
 pub enum TtsGenerationProgress {
-    InProgress(f32),
+    InProgress(f32, Option<Vec<f32>>),
     Finished,
 }
 
@@ -34,5 +34,6 @@ pub async fn run_job(
     state: tauri::State<'_, AppState>,
     progress_reader: tauri::ipc::Channel<TtsGenerationProgress>,
 ) -> CommandResult<()> {
+    state.tts_manager.send(job).await?;
     Ok(())
 }

@@ -12,8 +12,8 @@ export const ModelDownloader = () => {
 
     const [downloadProgress] = translateSpectaToSolidResource(commands.getDownloadManagerProgress);
         console.log("DOWNMAN:", downloadProgress())
-    const onItemStop = () => {
-        commands.stopModelDownload();
+    const onItemStop = (id: string) => {
+        commands.stopModelDownload(id);
     }
     return (
         <div>
@@ -21,13 +21,10 @@ export const ModelDownloader = () => {
             <For each={downloadProgress()}>
                 {item => <li class="bg-white-400 w-full">
                     <span>{item.name}</span> - <ProgressBar progress={item.progress!} /> -
-                    <button><IoStop /></button></li>
+                    <button onClick={() => onItemStop(item.name)}><IoStop /></button></li>
                 }
             </For>
-            {downloadProgress()?.length > 0 && <><h2 class="font-xl text-gray-400">
-                    No Downloads In Progress
-                </h2></>
-                }
+            {!downloadProgress() || downloadProgress()?.length == 0 && <>No Model Downloads Ongoing...</>}
         </div>
     )
 }

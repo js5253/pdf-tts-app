@@ -10,11 +10,12 @@ export const commands = {
 	setConfig: (config: TtsAppConfig) => typedError<null, CommandError>(__TAURI_INVOKE("set_config", { config })),
 	getRecentDocs: () => typedError<RecentDoc[], CommandError>(__TAURI_INVOKE("get_recent_docs")),
 	getDownloadedModels: () => typedError<Model[], CommandError>(__TAURI_INVOKE("get_downloaded_models")),
-	runJob: (job: TtsJobConfig, progressReader: Channel<TtsGenerationProgress>) => typedError<null, CommandError>(__TAURI_INVOKE("run_job", { job, progressReader })),
+	runJob: (job: TtsJobConfig, progressReader: Channel<TtsGenerationProgress_Deserialize>) => typedError<null, CommandError>(__TAURI_INVOKE("run_job", { job, progressReader })),
 	getOnlineModels: () => typedError<Model[], CommandError>(__TAURI_INVOKE("get_online_models")),
 	getCompletedOnboarding: () => typedError<boolean, CommandError>(__TAURI_INVOKE("get_completed_onboarding")),
 	setCompletedOnboarding: (request: CompletedOnboardingRequest, onboardingCh: Channel<HasCompletedOnboarding>) => typedError<null, CommandError>(__TAURI_INVOKE("set_completed_onboarding", { request, onboardingCh })),
 	downloadModel: (modelId: number) => typedError<null, CommandError>(__TAURI_INVOKE("download_model", { modelId })),
+	stopModelDownload: (modelName: string) => typedError<null, CommandError>(__TAURI_INVOKE("stop_model_download", { modelName })),
 };
 
 /* Types */
@@ -60,7 +61,11 @@ export type TtsAppConfig = {
 	base_color: string,
 };
 
-export type TtsGenerationProgress = { event: "inProgress"; data: number | null } | { event: "finished" };
+export type TtsGenerationProgress = TtsGenerationProgress_Serialize | TtsGenerationProgress_Deserialize;
+
+export type TtsGenerationProgress_Deserialize = { event: "inProgress"; data: [number | null, (number | null)[] | null] } | { event: "finished" };
+
+export type TtsGenerationProgress_Serialize = { event: "inProgress"; data: [number | null, (number | null)[] | null] } | { event: "finished" };
 
 export type TtsJobConfig = {
 	output_prefix: string,

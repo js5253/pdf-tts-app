@@ -1,14 +1,26 @@
-use crate::{config::TtsJobConfig, model_manager::{Model, ModelManager}, text_extraction::get_page_contents, util::CommandResult};
+use crate::{
+    config::TtsJobConfig,
+    model_manager::{Model, ModelManager},
+    recents::RecentDoc,
+    text_extraction::get_page_contents,
+    tts::TtsGenerationProgress,
+    util::CommandResult,
+};
+use anyhow::{anyhow, Context};
 use bzip2::bufread::BzDecoder;
 use futures::StreamExt;
 use image::EncodableLayout;
 use reqwest::Client;
-use anyhow::{anyhow, Context};
 use sherpa_onnx::{GenerationConfig, OfflineTts};
+use tauri::ipc::Channel;
 use uuid::Uuid;
 
 use std::{
-    fs, io::{Read, Write}, path::PathBuf, sync::Arc, time::Instant,
+    fs,
+    io::{Read, Write},
+    path::PathBuf,
+    sync::Arc,
+    time::{Duration, Instant},
 };
 use tar::Archive;
 use tokio::sync::{mpsc, Mutex};
@@ -19,40 +31,44 @@ pub struct TtsRequest {
     pub url: String,
     pub name: String,
 }
-#[instrument]
+#[instrument(skip(progress_reader))]
 pub async fn tts_manager(
     data_path: &PathBuf,
     downloaded_models: Arc<Mutex<Vec<Model>>>,
+    recent_tts: Arc<Mutex<Vec<RecentDoc>>>,
     mut receiver: mpsc::Receiver<TtsJobConfig>,
+    progress_reader: Channel<TtsGenerationProgress>,
 ) -> CommandResult<()> {
     info!("Starting TTS manager thread");
     if fs::read_dir("out").is_err() {
-        fs::create_dir("out").context("Failed to create output directory")?;
+        fs::create_dir("out")
+            .context("Failed to create output directory")
+            .unwrap();
     }
     while let Some(job) = receiver.recv().await {
+        let downloaded_models = downloaded_models.lock().await.clone();
+        let data_path = data_path.clone();
+        let progress_reader = progress_reader.clone();
+        let recent_tts = recent_tts.clone();
         tokio::task::spawn(async move {
             info!("Creating job with config: {:?}", job);
-            let mut p = get_page_contents(&job.input_file, job.use_ocr, job.start_page)?;
+            let mut p = get_page_contents(&job.input_file, job.use_ocr, job.start_page).unwrap();
             p.sort_by_key(|item| item.index);
 
             let model = {
-                let downloaded_models = downloaded_models.lock().await.clone();
                 let m = ModelManager::get_model(job.voice_id, &downloaded_models).await;
 
                 m
-            }?;
-            let current_path = app_dir.clone().join(format!("tts/{}", model.id));
+            }.unwrap();
+            let current_path = data_path.clone().join(format!("tts/{}", model.id));
             println!("{:?}", current_path);
-            let mut dir = fs::read_dir(&current_path).context(format!(
+            let dir = fs::read_dir(&current_path).context(format!(
                 "Could not read the TTS model directory: {:?}",
                 current_path
-            ))?;
-            if dir.next().is_none() {
-                return Err(anyhow!("Could not find a TTS model").into());
-            }
-            let config = model.get_config(&state.app_dir)?;
-            let tts = OfflineTts::create(&config.try_into()?)
-                .ok_or(anyhow!("Failed to create offline TTS"))?;
+            )).unwrap();
+            let config = model.get_config(&data_path).unwrap();
+            let tts = OfflineTts::create(&config.try_into().unwrap())
+                .ok_or(anyhow!("Failed to create offline TTS")).unwrap();
             let id: String = Uuid::new_v4().into();
             let gen_config = GenerationConfig {
                 sid: job.speaker_id as i32,
@@ -70,10 +86,10 @@ pub async fn tts_manager(
                 .generate_with_config(
                     all_text.as_str(),
                     &gen_config,
-                    Some(move |_samples: &[f32], progress: f32| -> bool {
+                    Some(move |samples: &[f32], progress: f32| -> bool {
                         if timer.elapsed() > Duration::from_secs(1) {
                             let _ =
-                                progress_reader.send(TtsGenerationProgress::InProgress(progress));
+                                progress_reader.send(TtsGenerationProgress::InProgress(progress, Some(samples.to_vec())));
                             timer = Instant::now();
                         }
                         true
@@ -88,7 +104,7 @@ pub async fn tts_manager(
                 "{}/{}",
                 job.output_dir
                     .to_str()
-                    .ok_or(anyhow!("Failed to get output dir."))?,
+                    .ok_or(anyhow!("Failed to get output dir.")).unwrap(),
                 id.clone()
             );
             info!("Saving to: {:?}", file_path);
@@ -96,7 +112,7 @@ pub async fn tts_manager(
             info!("Job Done: status {saved}");
             if saved {
                 {
-                    let mut data = state.recent_tts.blocking_lock();
+                    let mut data = recent_tts.blocking_lock();
                     data.push(RecentDoc {
                         name: id.clone(),
                         path: file_path.clone(),
@@ -105,6 +121,6 @@ pub async fn tts_manager(
                 }
             }
         });
-        Ok(())
     }
+Ok(())
 }
