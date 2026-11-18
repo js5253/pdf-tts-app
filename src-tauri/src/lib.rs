@@ -61,8 +61,8 @@ pub fn run() {
     let (mut download_tx, download_rx) = mpsc::channel::<DownloadRequest>(100);
     let (mut tts_tx, tts_rx) = mpsc::channel::<TtsJobConfig>(100);
     tracing_subscriber::registry()
-        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
         .with(fmt::layer())
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
         .init();
 
     let builder = Builder::<tauri::Wry>::new()

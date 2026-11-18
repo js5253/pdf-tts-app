@@ -23,7 +23,7 @@ use std::{
     time::{Duration, Instant},
 };
 use tar::Archive;
-use tokio::sync::{mpsc, Mutex};
+use tokio::{sync::{Mutex, mpsc}, task::JoinHandle};
 use tokio::{fs::File, io::AsyncWriteExt};
 use tracing::{info, instrument};
 #[derive(Debug)]
@@ -42,33 +42,25 @@ pub async fn tts_manager(
     info!("Starting TTS manager thread");
     if fs::read_dir("out").is_err() {
         fs::create_dir("out")
-            .context("Failed to create output directory")
-            .unwrap();
+            .context("Failed to create output directory")?;
     }
     while let Some(job) = receiver.recv().await {
         let downloaded_models = downloaded_models.lock().await.clone();
         let data_path = data_path.clone();
         let progress_reader = progress_reader.clone();
         let recent_tts = recent_tts.clone();
-        tokio::task::spawn(async move {
+        let _: JoinHandle<CommandResult<()>> = tokio::task::spawn(async move {
             info!("Creating job with config: {:?}", job);
-            let mut p = get_page_contents(&job.input_file, job.use_ocr, job.start_page).unwrap();
+            let mut p = get_page_contents(&job.input_file, job.use_ocr, job.start_page)?;
             p.sort_by_key(|item| item.index);
 
-            let model = {
-                let m = ModelManager::get_model(job.voice_id, &downloaded_models).await;
-
-                m
-            }.unwrap();
+            let model = ModelManager::get_model(job.voice_id, &downloaded_models).await?;
             let current_path = data_path.clone().join(format!("tts/{}", model.id));
             println!("{:?}", current_path);
-            let dir = fs::read_dir(&current_path).context(format!(
-                "Could not read the TTS model directory: {:?}",
-                current_path
-            )).unwrap();
-            let config = model.get_config(&data_path).unwrap();
-            let tts = OfflineTts::create(&config.try_into().unwrap())
-                .ok_or(anyhow!("Failed to create offline TTS")).unwrap();
+            let dir = fs::read_dir(&current_path).map_err(|_| anyhow!("Could not get dir"))?;
+            let config = model.get_config(&data_path)?;
+            let tts = OfflineTts::create(&config.try_into()?)
+                .ok_or(anyhow!("Failed to create offline TTS"))?;
             let id: String = Uuid::new_v4().into();
             let gen_config = GenerationConfig {
                 sid: job.speaker_id as i32,
@@ -104,7 +96,7 @@ pub async fn tts_manager(
                 "{}/{}",
                 job.output_dir
                     .to_str()
-                    .ok_or(anyhow!("Failed to get output dir.")).unwrap(),
+                    .ok_or(anyhow!("Failed to get output dir."))?,
                 id.clone()
             );
             info!("Saving to: {:?}", file_path);
@@ -120,6 +112,7 @@ pub async fn tts_manager(
                     });
                 }
             }
+                    Ok(())
         });
     }
 Ok(())
