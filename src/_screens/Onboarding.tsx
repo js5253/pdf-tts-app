@@ -13,7 +13,11 @@ export const Onboarding = () => {
 
     console.log("ONBOARD")
     return (
-        <ErrorBoundary fallback={<p>Error   </p>}>
+        <ErrorBoundary fallback={(err) => <div class="gap-2 flex flex-col">
+            <h1 class="text-4xl">Cannot load model download manager.</h1>
+            <h3 class="text-xl">Check your internet or proceed to the home page.</h3>
+            <Button onClick={onClick}>Continue</Button>
+        </div>}>
             <div class="space-y-4">
                 <h1 class="text-4xl">Hey.</h1>
                 <p>Let's set things up. Select a TTS model to download.</p>

@@ -9,6 +9,8 @@ import { TTSVoiceManager } from "../components/TTSVoiceManager";
 import { IoInformation, IoInformationCircle } from "solid-icons/io";
 import { ColorPicker } from "../components/ColorPicker";
 import { useSettings } from "../context/SettingsContext";
+
+
 const Settings = () => {
     const {config, updateConfig} = useSettings();
     const [models, { refetch: refetchModels }] = translateSpectaToSolidResource(commands.getDownloadedModels)
@@ -77,9 +79,9 @@ const Settings = () => {
                 <ul class="flex flex-col gap-2">
                     <h3 class="text-lg">Downloaded</h3>
                     <For each={models()} fallback={<p class="flex flex-row items-cente gap-1"><IoInformationCircle />No Models Downloaded.</p>}>
-                        {(model) => <li data-index={model} class={classNames("shadow bg-green-50 px-4 py-2 bg-gray-200 rounded flex flex-row items-between justify-between", { "font-bold": config().voice == model })}>{model}
+                        {(model) => <li data-index={model} class={classNames("shadow bg-green-50 px-4 py-2 bg-gray-200 rounded flex flex-row items-between justify-between", { "font-bold": config().voice == model })}>{model.name}
 
-                            <Show when={config.voice !== model}><Button onClick={() => makeDefaultModel(model)}>Make Default</Button></Show></li>}
+                            <Show when={config.voice !== model}><Button onClick={() => makeDefaultModel(model.name)}>Make Default</Button></Show></li>}
                     </For>
                     <h3 class="text-lg">Get TTS Voices</h3>
                 </ul>

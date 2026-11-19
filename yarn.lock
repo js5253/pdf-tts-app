@@ -369,6 +369,13 @@
     "@eslint/core" "^1.2.1"
     levn "^0.4.1"
 
+"@fltsci/tauri-plugin-tracing@^0.3.4":
+  version "0.3.4"
+  resolved "https://registry.yarnpkg.com/@fltsci/tauri-plugin-tracing/-/tauri-plugin-tracing-0.3.4.tgz#f33524ffa3f03191014d657c8e55bfa3a3ccac2e"
+  integrity sha512-MLwqLBzlL6Np782W3eGQ+nbd8geUHLTyGV+xUVkYwj21LChU828JEWCOE2asXzRJjJGftM8ICKIFjsC8ftkJiA==
+  dependencies:
+    "@tauri-apps/api" "2.11.0"
+
 "@humanfs/core@^0.19.2":
   version "0.19.2"
   resolved "https://registry.yarnpkg.com/@humanfs/core/-/core-0.19.2.tgz#a8272ca03b2acf492670222b2320b6c421bfde60"
@@ -789,6 +796,11 @@
     "@tailwindcss/node" "4.3.5"
     "@tailwindcss/oxide" "4.3.5"
     tailwindcss "4.3.5"
+
+"@tauri-apps/api@2.11.0":
+  version "2.11.0"
+  resolved "https://registry.yarnpkg.com/@tauri-apps/api/-/api-2.11.0.tgz#00fb69996010178a5153798d4a84f6fe3a1e1182"
+  integrity sha512-7CinYODhky9lmO23xHnUFv0Xt43fbtWMyxZcLcRBlFkcgXKuEirBvHpmtJ89YMhyeGcq20Wuc47Fa4XjyniywA==
 
 "@tauri-apps/api@^2", "@tauri-apps/api@^2.12.0":
   version "2.12.4"

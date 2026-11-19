@@ -22,6 +22,6 @@ const SettingsContextProvider = (props: ParentProps) => {
 const useSettings = () => {
     const { config, updateConfig } = useContext(SettingsContext);
 
-    return { config }
+    return { config, updateConfig }
 }
 export { SettingsContext, SettingsContextProvider, useSettings };

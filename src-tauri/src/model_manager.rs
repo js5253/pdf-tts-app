@@ -1,7 +1,5 @@
 use crate::{
-    download_manager::DownloadRequest,
-    util::{CommandError, CommandResult, Error},
-    AppState,
+    AppState, download_manager::{DownloadRequest, DownloadRequestType}, util::{CommandError, CommandResult, Error},
 };
 use anyhow::{anyhow, Context};
 use futures::TryStreamExt;
@@ -30,6 +28,14 @@ pub async fn load_cached_models(data_path: &PathBuf) -> CommandResult<HashMap<u3
     let contents = contents.as_str();
     let models: HashMap<u32, Model> = toml::from_str(contents)?;
     Ok(models)
+}
+
+#[tauri::command(async)]
+#[specta::specta]
+#[instrument(skip(state))]
+pub async fn stop_model_download(state: tauri::State<'_, AppState>, model_name: String) -> CommandResult<()>{
+    state.download_manager.send(DownloadRequest { url:  None, name: Some(model_name), r#type: DownloadRequestType::CancelDownload }).await?;
+    Ok(())
 }
 
 #[tauri::command(async)]
@@ -429,7 +435,6 @@ impl ModelManager {
                 .collect();
             fs::write(output_path, toml::to_string_pretty(&models)?)?;
 
-            info!("Models: {:?}", models);
             *cached_online_models = models.clone();
             let arr: Vec<Model> = models.into_values().collect();
 
@@ -439,8 +444,9 @@ impl ModelManager {
     async fn download_model(model: Model, tx: &mpsc::Sender<DownloadRequest>) -> CommandResult<()> {
         // let model = model.lock().await;
         tx.send(DownloadRequest {
-            name: model.name.clone(),
-            url: model.url.clone(),
+            name: Some(model.name.clone()),
+            url: Some(model.url.clone()),
+            r#type: DownloadRequestType::Download
         })
         .await?;
         Ok(())

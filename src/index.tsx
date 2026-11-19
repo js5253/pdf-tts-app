@@ -5,7 +5,6 @@ import { AppBar } from "./components/AppBar";
 import "./App.css";
 import { Home } from "./_screens/Home";
 import { Settings } from "./_screens/Settings";
-import { Done } from "./_screens/Done";
 import { Toaster } from "solid-toast";
 import { Onboarding } from "./_screens/Onboarding";
 import { ParentProps, Suspense } from "solid-js";
@@ -30,7 +29,7 @@ const Layout = (props: ParentProps) => {
                     <p>Try restarting the app.</p>
                 </div>
             )}>
-                <div class="grow flex flex-col gap-4 items-center justify-center p-8 pt-16">
+                <div class="grow flex flex-col gap-4 bg-green-50 items-center justify-center p-8 pt-16">
                     {props.children}
                 </div>
             </ErrorBoundary>
@@ -63,8 +62,6 @@ const App = () => {
                 <Route path="/" component={Onboarding} />}
             <Route path="/model_downloads" component={ModelDownloader} />
             <Route path="/in_progress" component={JobProgress} />
-
-            <Route path="/done" component={Done} />
             <Route path="/settings" component={Settings} />
         </Router>
 

@@ -10,11 +10,13 @@ export const commands = {
 	setConfig: (config: TtsAppConfig) => typedError<null, CommandError>(__TAURI_INVOKE("set_config", { config })),
 	getRecentDocs: () => typedError<RecentDoc[], CommandError>(__TAURI_INVOKE("get_recent_docs")),
 	getDownloadedModels: () => typedError<Model[], CommandError>(__TAURI_INVOKE("get_downloaded_models")),
-	runJob: (job: TtsJobConfig, progressReader: Channel<TtsGenerationProgress>) => typedError<null, CommandError>(__TAURI_INVOKE("run_job", { job, progressReader })),
+	runJob: (job: TtsJobConfig_Deserialize) => typedError<null, CommandError>(__TAURI_INVOKE("run_job", { job })),
 	getOnlineModels: () => typedError<Model[], CommandError>(__TAURI_INVOKE("get_online_models")),
 	getCompletedOnboarding: () => typedError<boolean, CommandError>(__TAURI_INVOKE("get_completed_onboarding")),
 	setCompletedOnboarding: (request: CompletedOnboardingRequest, onboardingCh: Channel<HasCompletedOnboarding>) => typedError<null, CommandError>(__TAURI_INVOKE("set_completed_onboarding", { request, onboardingCh })),
 	downloadModel: (modelId: number) => typedError<null, CommandError>(__TAURI_INVOKE("download_model", { modelId })),
+	stopModelDownload: (modelName: string) => typedError<null, CommandError>(__TAURI_INVOKE("stop_model_download", { modelName })),
+	getTtsProgress: () => typedError<TTSRequest[], CommandError>(__TAURI_INVOKE("get_tts_progress")),
 };
 
 /* Types */
@@ -47,6 +49,14 @@ export type RecentDoc = {
 
 export type SupportedTTSType = "Vits" | "Kitten" | "Matcha" | "Kokoro" | "Supertonic";
 
+export type TTSRequest = {
+	url: string,
+	name: string,
+	progress: TTSRequestProgress,
+};
+
+export type TTSRequestProgress = "Queued" | { InProgress: number } | "Completed";
+
 export type TtsAppConfig = {
 	/**  start the narration at a certain page */
 	app_dir: string,
@@ -58,11 +68,12 @@ export type TtsAppConfig = {
 	combine_pages: boolean,
 	speaker_id: number,
 	base_color: string,
+	force_ocr: boolean,
 };
 
-export type TtsGenerationProgress = { event: "inProgress"; data: number | null } | { event: "finished" };
+export type TtsJobConfig = TtsJobConfig_Serialize | TtsJobConfig_Deserialize;
 
-export type TtsJobConfig = {
+export type TtsJobConfig_Deserialize = {
 	output_prefix: string,
 	output_dir: string,
 	start_page: number,
@@ -72,8 +83,24 @@ export type TtsJobConfig = {
 	combine_pages: boolean,
 	/**  for voices that have multiple speakers, pass a speaker_id. */
 	speaker_id: number,
-	use_ocr: boolean,
+	force_ocr: boolean,
 	input_file: string,
+	ocr_region?: [([number, number]), ([number, number])] | null,
+};
+
+export type TtsJobConfig_Serialize = {
+	output_prefix: string,
+	output_dir: string,
+	start_page: number,
+	/**  sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html */
+	voice_id: number,
+	speed: number | null,
+	combine_pages: boolean,
+	/**  for voices that have multiple speakers, pass a speaker_id. */
+	speaker_id: number,
+	force_ocr: boolean,
+	input_file: string,
+	ocr_region: [([number, number]), ([number, number])] | null,
 };
 
 /* Tauri Specta runtime */

@@ -4,6 +4,8 @@ Simple Tauri app that uses sherpa to create a text-to-speech of whatever pdf you
 ![project screenshot](resources/public/homepage.png)
 ![onboarding](resources/public/onboarding.png)
 
+## Project Architecture
+
 ## TTS Model Support
 This project will soon support all k2-fsa TTS models. 
 ## Project Status
