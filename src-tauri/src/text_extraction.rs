@@ -6,9 +6,10 @@ use pdf2image::{RenderOptionsBuilder, PDF};
 use pdf_inspector::process_pdf;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::{
-    fmt::{self, Display, Formatter},
-    path::Path,
+    ffi::OsStr, fmt::{self, Display, Formatter}, path::{Path, PathBuf},
 };
+
+use crate::util::CommandResult;
 
 #[derive(Debug)]
 pub struct Page {
@@ -53,7 +54,7 @@ fn text_from_image(image: &DynamicImage) -> String {
     ocr_region(image_dims, coords, image).unwrap()
 }
 
-fn run_pdf_text(input_file: &String) -> anyhow::Result<Vec<Page>> {
+fn run_pdf_text(input_file: &PathBuf) -> CommandResult<Vec<Page>> {
     let mut p: Vec<Page> = Vec::new();
     let input_path = Path::new(&input_file);
     let pdf = process_pdf(input_path);
@@ -69,7 +70,9 @@ fn run_pdf_text(input_file: &String) -> anyhow::Result<Vec<Page>> {
     };
     Ok(p)
 }
-fn run_pdf_ocr(input_file: &String, start_page: u32) -> anyhow::Result<Vec<Page>> {
+fn run_pdf_ocr(input_file: &PathBuf, start_page: u32, range: Option<[[u32;2];2]>) -> CommandResult<Vec<Page>> {
+    // see: https://github.com/ajrcarey/pdfium-render/blob/master/examples/image.rs
+    todo!("replace pdf2image code with pdfium so it can render a specific region");
     let pdf = PDF::from_file(input_file).context("Could not read PDF file")?;
     let page_images: Vec<DynamicImage> = pdf
         .render(
@@ -95,13 +98,14 @@ fn run_pdf_ocr(input_file: &String, start_page: u32) -> anyhow::Result<Vec<Page>
     Ok(pages)
 }
 pub fn get_page_contents(
-    input_file: &String,
+    input_file: &PathBuf,
     use_ocr: bool,
     start_page: u32,
-) -> anyhow::Result<Vec<Page>> {
-    match &input_file.contains(".pdf") {
+    range: Option<[[u32;2];2]>
+) -> CommandResult<Vec<Page>> {
+    match input_file.extension().ok_or(anyhow!("No File Extension Found"))? == OsStr::new("pdf") {
         true => match use_ocr {
-            true => run_pdf_ocr(input_file, start_page),
+            true => run_pdf_ocr(input_file, start_page, range),
             false => run_pdf_text(input_file),
         },
         false => {

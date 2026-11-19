@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{util::CommandResult, AppState, Model};
-use anyhow::anyhow;
 #[derive(Deserialize, Serialize, specta::Type, Debug, Clone)]
 pub struct DownloadManagerProgress {
     name: String,
@@ -11,6 +11,7 @@ pub struct DownloadManagerProgress {
 
 #[tauri::command]
 #[specta::specta]
+#[instrument(skip(state))]
 pub async fn get_downloaded_models(state: tauri::State<'_, AppState>) -> CommandResult<Vec<Model>> {
     let data = {
         let models = state
@@ -24,17 +25,19 @@ pub async fn get_downloaded_models(state: tauri::State<'_, AppState>) -> Command
 
 #[tauri::command]
 #[specta::specta]
+#[instrument(skip(state))]
 pub async fn set_default_model(
     model_name: String,
     state: tauri::State<'_, AppState>,
 ) -> CommandResult<()> {
-    let models = {
+    let _models = {
         state.settings.lock().await.voice = model_name;
     };
     Ok(())
 }
 #[tauri::command]
 #[specta::specta]
+#[instrument(skip(state))]
 pub async fn get_download_manager_progress(
     state: tauri::State<'_, AppState>,
 ) -> CommandResult<Vec<DownloadManagerProgress>> {

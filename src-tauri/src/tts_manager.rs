@@ -7,21 +7,16 @@ use crate::{
     util::CommandResult,
 };
 use anyhow::{anyhow, Context};
-use bzip2::bufread::BzDecoder;
 use futures::StreamExt;
-use image::EncodableLayout;
-use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use sherpa_onnx::{GenerationConfig, OfflineTts};
 use tauri::ipc::Channel;
 use uuid::Uuid;
 
 use std::{
-    default, fs, io::{Read, Write}, path::PathBuf, sync::Arc, time::{Duration, Instant},
+    path::PathBuf, sync::Arc, time::{Duration, Instant},
 };
-use tar::Archive;
 use tokio::{sync::{Mutex, mpsc}, task::JoinHandle};
-use tokio::{fs::File, io::AsyncWriteExt};
 use tracing::{info, instrument};
 #[derive(Default, Debug, specta::Type, Clone, Deserialize, Serialize)]
 pub enum TTSRequestProgress {
@@ -57,7 +52,7 @@ pub async fn tts_manager(
         let recent_tts = recent_tts.clone();
         let _: JoinHandle<CommandResult<()>> = tokio::task::spawn(async move {
             info!("Creating job with config: {:?}", job);
-            let mut p = get_page_contents(&job.input_file, job.force_ocr, job.start_page)?;
+            let mut p = get_page_contents(&PathBuf::from(job.input_file), job.force_ocr, job.start_page, job.ocr_region)?;
             p.sort_by_key(|item| item.index);
 
             let model = ModelManager::get_model(job.voice_id, &downloaded_models).await?;

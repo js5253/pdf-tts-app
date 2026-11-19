@@ -1,5 +1,5 @@
-use anyhow::anyhow;
 use serde::{Deserialize, Serialize};
+use tracing::instrument;
 
 use crate::{AppState, util::CommandResult};
 
@@ -12,6 +12,7 @@ pub struct RecentDoc {
 
 #[tauri::command]
 #[specta::specta]
+#[instrument(skip(state))]
 pub async fn get_recent_docs(state: tauri::State<'_, AppState>) -> CommandResult<Vec<RecentDoc>> {
         let recents = state.recent_tts.lock().await;
         let recents = recents.clone();

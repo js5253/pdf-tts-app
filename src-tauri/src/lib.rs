@@ -1,6 +1,4 @@
 use anyhow::Context;
-use log::LevelFilter;
-use serde::{Deserialize, Serialize};
 #[cfg(debug_assertions)]
 use specta_typescript::Typescript;
 use std::sync::Arc;
@@ -61,8 +59,8 @@ struct AppState {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let gh_access_token = dotenvy_macro::dotenv!("GH_ACCESS_TOKEN");
-    let (mut download_tx, download_rx) = mpsc::channel::<DownloadRequest>(100);
-    let (mut tts_tx, tts_rx) = mpsc::channel::<TtsJobConfig>(100);
+    let (download_tx, download_rx) = mpsc::channel::<DownloadRequest>(100);
+    let (tts_tx, tts_rx) = mpsc::channel::<TtsJobConfig>(100);
     tracing_subscriber::registry()
         .with(fmt::layer())
         .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))

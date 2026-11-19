@@ -1,20 +1,9 @@
-use std::{fs, time::Duration};
 
-use crate::config::TtsJobConfig;
-use crate::model_manager::{ModelManager, SupportedTTSType};
 use crate::tts_manager::TTSRequest;
-use crate::{
-    config::{self},
-    recents::RecentDoc,
-    text_extraction::get_page_contents,
-};
+use crate::config::{self};
 use crate::{util::CommandResult, AppState};
-use log::info;
 use serde::Serialize;
-use sherpa_onnx::{GenerationConfig, OfflineTts};
-use tokio::time::Instant;
 use tracing::instrument;
-use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, specta::Type)]
 #[serde(

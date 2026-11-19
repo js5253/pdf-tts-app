@@ -13,7 +13,7 @@ use crate::{util::CommandResult, AppState};
 #[derive(Serialize, Deserialize, Debug, specta::Type)]
 pub struct CompletedOnboardingRequest(bool);
 
-#[derive(Clone, Default, Serialize, specta::Type)]
+#[derive(Clone, Default, Serialize, Debug, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct HasCompletedOnboarding;
 // #[derive(Debug)]
@@ -104,6 +104,7 @@ pub async fn get_config(state: tauri::State<'_, AppState>) -> CommandResult<TtsA
 }
 #[tauri::command]
 #[specta::specta]
+#[instrument(skip(state))]
 pub async fn set_config(
     app: AppHandle,
     config: TtsAppConfig,
@@ -119,6 +120,7 @@ pub async fn set_config(
 
 #[tauri::command]
 #[specta::specta]
+#[instrument(skip(state))]
 pub async fn get_completed_onboarding(state: tauri::State<'_, AppState>) -> CommandResult<bool> {
     let completed = state.completed_onboarding.lock().await;
     Ok(*completed)
@@ -126,6 +128,7 @@ pub async fn get_completed_onboarding(state: tauri::State<'_, AppState>) -> Comm
 
 #[tauri::command]
 #[specta::specta]
+#[instrument(skip(state, onboarding_ch))]
 pub async fn set_completed_onboarding(
     request: CompletedOnboardingRequest,
     state: tauri::State<'_, AppState>,
@@ -138,6 +141,6 @@ pub async fn set_completed_onboarding(
             .await;
         *completed = request.0;
     };
-    onboarding_ch.send(HasCompletedOnboarding);
+    let _ = onboarding_ch.send(HasCompletedOnboarding);
     Ok(())
 }

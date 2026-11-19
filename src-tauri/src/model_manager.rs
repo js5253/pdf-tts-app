@@ -1,5 +1,5 @@
 use crate::{
-    AppState, download_manager::{DownloadRequest, DownloadRequestType}, util::{CommandError, CommandResult, Error},
+    AppState, download_manager::{DownloadRequest, DownloadRequestType}, util::CommandResult,
 };
 use anyhow::{anyhow, Context};
 use futures::TryStreamExt;
@@ -13,10 +13,9 @@ use sherpa_onnx::{
 use std::{
     collections::HashMap,
     fs,
-    sync::Arc,
     path::{Path, PathBuf},
 };
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::mpsc;
 use tracing::{info, instrument};
 
 const SHERPA_URL: &str = "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/tags/tts-models";
