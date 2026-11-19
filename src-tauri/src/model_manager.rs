@@ -69,8 +69,7 @@ pub async fn download_model(model_id: u32, state: tauri::State<'_, AppState>) ->
         model
     };
     ModelManager::download_model(model, &state.download_manager)
-        .await
-        .unwrap();
+        .await?;
 
     Ok(())
 }
@@ -371,9 +370,9 @@ impl ModelManager {
         id: u32,
         cached_online_models: &HashMap<u32, Model>,
     ) -> CommandResult<Model> {
-        let model = cached_online_models.get(&id).unwrap();
+        let model = cached_online_models.get(&id).ok_or(anyhow!("")).map(|item| item.to_owned());
+        Ok(model?)
 
-        Ok(model.to_owned())
     }
     #[instrument]
     async fn get_online_models(
@@ -420,8 +419,8 @@ impl ModelManager {
                     let r#type = get_type_from_string(item.name.as_str());
 
                     r#type.as_ref()?;
-                    let r#type = r#type.unwrap();
-                    Some((
+                    if let Some(r#type) = r#type {
+                    return Some((
                         item.id,
                         Model {
                             name: item.name.clone(),
@@ -429,7 +428,10 @@ impl ModelManager {
                             id: item.id,
                             r#type,
                         },
-                    ))
+                    ));
+
+                    }
+                    None
                 })
                 .collect();
             fs::write(output_path, toml::to_string_pretty(&models)?)?;

@@ -85,7 +85,9 @@ pub async fn download_manager(
                         offset += chunk.len();
                     }
                     info!("Downloaded file {:?} at {:?}", &req_path.to_str(), dest);
-                    thread_token.lock().await.insert(r.name.unwrap(), token);
+                    if let Some(name) = r.name {
+                        let _ = thread_token.lock().await.insert(name, token);
+                    }
                     Ok(())
                 });
             }

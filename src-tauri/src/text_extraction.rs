@@ -2,7 +2,6 @@ use anyhow::{anyhow, Context};
 use glam::UVec2;
 use image::{ColorType, DynamicImage};
 use markdown_strip::strip_markdown;
-use pdf2image::{RenderOptionsBuilder, PDF};
 use pdf_inspector::process_pdf;
 use pdfium_render::prelude::*;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
