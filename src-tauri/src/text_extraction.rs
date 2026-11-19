@@ -4,9 +4,12 @@ use image::{ColorType, DynamicImage};
 use markdown_strip::strip_markdown;
 use pdf2image::{RenderOptionsBuilder, PDF};
 use pdf_inspector::process_pdf;
+use pdfium_render::prelude::*;
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::{
-    ffi::OsStr, fmt::{self, Display, Formatter}, path::{Path, PathBuf},
+    ffi::OsStr,
+    fmt::{self, Display, Formatter},
+    path::{Path, PathBuf},
 };
 
 use crate::util::CommandResult;
@@ -47,11 +50,11 @@ fn ocr_region(dims: UVec2, coords: UVec2, image: &DynamicImage) -> anyhow::Resul
     Ok(text)
 }
 
-fn text_from_image(image: &DynamicImage) -> String {
+fn text_from_image(image: &DynamicImage) -> CommandResult<String> {
     let image_dims = UVec2::from_array([image.width(), image.height()]);
     let coords = UVec2::ZERO;
 
-    ocr_region(image_dims, coords, image).unwrap()
+    Ok(ocr_region(image_dims, coords, image)?)
 }
 
 fn run_pdf_text(input_file: &PathBuf) -> CommandResult<Vec<Page>> {
@@ -70,29 +73,40 @@ fn run_pdf_text(input_file: &PathBuf) -> CommandResult<Vec<Page>> {
     };
     Ok(p)
 }
-fn run_pdf_ocr(input_file: &PathBuf, start_page: u32, range: Option<[[u32;2];2]>) -> CommandResult<Vec<Page>> {
-    // see: https://github.com/ajrcarey/pdfium-render/blob/master/examples/image.rs
-    todo!("replace pdf2image code with pdfium so it can render a specific region");
-    let pdf = PDF::from_file(input_file).context("Could not read PDF file")?;
-    let page_images: Vec<DynamicImage> = pdf
-        .render(
-            pdf2image::Pages::Range(start_page..=(pdf.page_count() - 1)),
-            RenderOptionsBuilder::default()
-                .greyscale(true)
-                .build()
-                .context("Could not create render options.")?,
-        )
-        .context("Could not render a pdf into an image.")?
-        .iter_mut()
-        .map(|page| page.grayscale().rotate90())
+fn run_pdf_ocr(
+    input_file: &PathBuf,
+    _start_page: u32,
+    range: Option<[[u32; 2]; 2]>,
+) -> CommandResult<Vec<Page>> {
+    let pdfium = Pdfium::default();
+    let file = pdfium.load_pdf_from_file(input_file, None)?;
+    let mut config = PdfRenderConfig::default();
+    if let Some(range) = range {
+        config = config.clip( range[0][0] as i32, range[0][1] as i32, range[1][0] as i32, range[1][1] as i32);
+    }
+    let page_images: Vec<PdfBitmap<'_>> = file
+        .pages()
+        .iter()
+        .map(|page| {
+            let width = page.width().value;
+            let height = page.height().value;
+            let mut bitmap =
+                PdfBitmap::empty(width as Pixels, height as Pixels, PdfBitmapFormat::Gray)
+                    .map_err(|_| anyhow!("Failed to render PDF to an image"))
+                    .unwrap();
+            let _ = page.render_into_bitmap_with_config(&mut bitmap, &config);
+            bitmap
+        })
         .collect();
 
     let pages: Vec<Page> = page_images
         .par_iter()
         .enumerate()
-        .map(|(idx, image)| Page {
-            index: idx as u32,
-            contents: text_from_image(image),
+        .filter_map(|(idx, image)| {
+            Some(Page {
+                index: idx as u32,
+                contents: text_from_image(&image.as_image().map_err(|_| anyhow!("ABC")).ok()?).unwrap(),
+            })
         })
         .collect();
     Ok(pages)
@@ -101,9 +115,13 @@ pub fn get_page_contents(
     input_file: &PathBuf,
     use_ocr: bool,
     start_page: u32,
-    range: Option<[[u32;2];2]>
+    range: Option<[[u32; 2]; 2]>,
 ) -> CommandResult<Vec<Page>> {
-    match input_file.extension().ok_or(anyhow!("No File Extension Found"))? == OsStr::new("pdf") {
+    match input_file
+        .extension()
+        .ok_or(anyhow!("No File Extension Found"))?
+        == OsStr::new("pdf")
+    {
         true => match use_ocr {
             true => run_pdf_ocr(input_file, start_page, range),
             false => run_pdf_text(input_file),
@@ -115,4 +133,5 @@ pub fn get_page_contents(
             Ok(vec![Page { index: 0, contents }])
         }
     }
+    // post-processing for either anydoc or the OCR'ed/Tesseracted system goes here.
 }
