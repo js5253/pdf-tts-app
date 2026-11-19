@@ -29,7 +29,7 @@ pub struct TtsJobConfig {
     pub combine_pages: bool,
     /// for voices that have multiple speakers, pass a speaker_id.
     pub speaker_id: u32,
-    pub use_ocr: bool,
+    pub force_ocr: bool,
     // end TTS config here
     pub input_file: String,
 }
@@ -46,6 +46,7 @@ pub struct TtsAppConfig {
     pub combine_pages: bool,
     pub speaker_id: u32,
     pub base_color: String,
+    pub force_ocr: bool
 }
 
 // NOTE: APP CONFIG NEEDS TO BE MANAGED MORE CLEANLY BETWEEN UPDATES.
@@ -55,6 +56,7 @@ impl TtsAppConfig {
             start_page: 0,
             output_dir,
             app_dir,
+            force_ocr: false,
             voice: String::from("vits-piper-en_US-libritts_r-medium"),
             speed: 1.0,
             combine_pages: true,
@@ -80,17 +82,7 @@ impl TtsAppConfig {
                 }
             }
         } else {
-            let config = TtsAppConfig {
-                start_page: 0,
-                output_dir: app_dir.to_path_buf(),
-                app_dir: app_dir.to_path_buf(),
-                voice: String::from("vits-piper-en_US-libritts_r-medium"),
-                speed: 1.0,
-                combine_pages: true,
-                speaker_id: 1,
-                output_prefix: String::from("page_"),
-                base_color: String::from("green"),
-            };
+            let config = TtsAppConfig::default(app_dir.join("out").to_path_buf(), app_dir.to_path_buf());
             fs::write(config_path, toml::to_string(&config).unwrap()).unwrap();
 
             config
@@ -119,7 +111,7 @@ pub async fn set_config(
     let mut state = state.settings.lock().await;
     *state = config;
 
-    app.emit("settings-changed", "").map_err(|_| anyhow!(""))?;
+    app.emit("settings-changed", "").map_err(|_| anyhow!("Failed to send setting change notification"))?;
 
     Ok(())
 }

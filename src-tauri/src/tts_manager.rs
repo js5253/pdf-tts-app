@@ -11,26 +11,32 @@ use bzip2::bufread::BzDecoder;
 use futures::StreamExt;
 use image::EncodableLayout;
 use reqwest::Client;
+use serde::{Deserialize, Serialize};
 use sherpa_onnx::{GenerationConfig, OfflineTts};
 use tauri::ipc::Channel;
 use uuid::Uuid;
 
 use std::{
-    fs,
-    io::{Read, Write},
-    path::PathBuf,
-    sync::Arc,
-    time::{Duration, Instant},
+    default, fs, io::{Read, Write}, path::PathBuf, sync::Arc, time::{Duration, Instant},
 };
 use tar::Archive;
 use tokio::{sync::{Mutex, mpsc}, task::JoinHandle};
 use tokio::{fs::File, io::AsyncWriteExt};
 use tracing::{info, instrument};
-#[derive(Debug)]
-pub struct TtsRequest {
+#[derive(Default, Debug, specta::Type, Clone, Deserialize, Serialize)]
+pub enum TTSRequestProgress {
+    #[default]
+    Queued,
+    InProgress(u32),
+    Completed
+}
+#[derive(Debug, specta::Type, Clone, Deserialize, Serialize)]
+pub struct TTSRequest {
     pub url: String,
     pub name: String,
+    pub progress: TTSRequestProgress
 }
+
 #[instrument(skip(progress_reader))]
 pub async fn tts_manager(
     data_path: &PathBuf,
@@ -51,13 +57,13 @@ pub async fn tts_manager(
         let recent_tts = recent_tts.clone();
         let _: JoinHandle<CommandResult<()>> = tokio::task::spawn(async move {
             info!("Creating job with config: {:?}", job);
-            let mut p = get_page_contents(&job.input_file, job.use_ocr, job.start_page)?;
+            let mut p = get_page_contents(&job.input_file, job.force_ocr, job.start_page)?;
             p.sort_by_key(|item| item.index);
 
             let model = ModelManager::get_model(job.voice_id, &downloaded_models).await?;
             let current_path = data_path.clone().join(format!("tts/{}", model.id));
             println!("{:?}", current_path);
-            let dir = fs::read_dir(&current_path).map_err(|_| anyhow!("Could not get dir"))?;
+            // let dir = fs::read_dir(&current_path).map_err(|_| anyhow!("Could not get dir"))?;
             let config = model.get_config(&data_path)?;
             let tts = OfflineTts::create(&config.try_into()?)
                 .ok_or(anyhow!("Failed to create offline TTS"))?;

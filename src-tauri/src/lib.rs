@@ -24,6 +24,7 @@ mod text_extraction;
 mod tts;
 mod tts_manager;
 mod util;
+
 use config::{
     get_completed_onboarding, get_config, set_completed_onboarding, set_config, TtsAppConfig,
 };
@@ -33,9 +34,10 @@ use models::{
     DownloadManagerProgress,
 };
 use recents::{get_recent_docs, RecentDoc};
-use tts::run_job;
+use tts::{run_job, get_tts_progress};
 
 use crate::model_manager::stop_model_download;
+use crate::tts_manager::TTSRequest;
 use crate::{
     config::TtsJobConfig,
     download_manager::DownloadRequest,
@@ -54,6 +56,7 @@ struct AppState {
     app_dir: PathBuf,
     download_manager: mpsc::Sender<DownloadRequest>,
     tts_manager: mpsc::Sender<TtsJobConfig>,
+    tts_progress: Arc<Mutex<Vec<TTSRequest>>>,
 }
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -79,7 +82,8 @@ pub fn run() {
             get_completed_onboarding,
             set_completed_onboarding,
             download_model,
-            stop_model_download
+            stop_model_download,
+            get_tts_progress
         ]);
     #[cfg(debug_assertions)] // <- Only export on non-release builds
     builder
@@ -154,6 +158,7 @@ pub fn run() {
                 app_dir,
                 download_manager: download_tx,
                 tts_manager: tts_tx,
+                tts_progress: Arc::new(Mutex::new(Vec::new()))
             });
             Ok(())
         })
@@ -171,7 +176,8 @@ pub fn run() {
             get_downloaded_models,
             download_model,
             stop_model_download,
-            run_job
+            run_job,
+            get_tts_progress
         ])
         .run(tauri::generate_context!())
         .expect("Error running app");

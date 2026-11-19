@@ -1,11 +1,10 @@
-import { Component, createEffect, createSignal, onMount } from "solid-js";
-import { usePDFSlick } from "@pdfslick/solid";
+import { Component, createSignal, onMount } from "solid-js";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.mjs?url";
 // @ts-expect-error
 import * as pdfjsLib from 'pdfjs-dist/build/pdf.mjs'
 import { Button } from "./Button";
-import { IoAdd, IoArrowUpLeftBox, IoArrowUpRightBox, IoCrop, IoMailUnreadSharp, IoSquare } from "solid-icons/io";
+import { IoAdd, IoArrowBackOutline, IoArrowForwardOutline, IoArrowUpLeftBox, IoSquareOutline } from "solid-icons/io";
 import { ImFolderMinus } from "solid-icons/im";
 type PDFViewerAppProps = {
   pdfFilePath: string,
@@ -15,10 +14,12 @@ const MAX_CANVAS_WIDTH = 600;
 const MAX_CANVAS_HEIGHT = 800;
 
 export const PDFRegionPicker: Component<PDFViewerAppProps> = ({ pdfFilePath }) => {
-
+  const [pageNumber, setPageNumber] = createSignal(0);
+  const [pdfPageCount, setPdfPageCount] = createSignal(1);
   let canvas!: HTMLCanvasElement;
-  onMount(async () => {
+  async function renderPdf() {
     if (!canvas) throw new Error("Missing Canvas");
+
     var context = canvas.getContext("2d");
 
     //
@@ -30,12 +31,13 @@ export const PDFRegionPicker: Component<PDFViewerAppProps> = ({ pdfFilePath }) =
     // to use Uint8Array, but string or array-like structure will work too.
     var loadingTask = pdfjsLib.getDocument({ url: convertFileSrc(pdfFilePath) });
     var pdf = await loadingTask.promise;
+    setPdfPageCount(1)
     // Fetch the first page.
-    var page = await pdf.getPage(1);
-    var scale = 1.5;
+    var page = await pdf.getPage(pageNumber);
+    var scale = 1;
     var viewport = page.getViewport({ scale });
     // Support HiDPI-screens.
-    var outputScale = window.devicePixelRatio || 1;
+    var outputScale = (canvas.width / viewport.width) * scale;
 
     // Prepare canvas using PDF page dimensions.
     var context = canvas.getContext("2d");
@@ -54,18 +56,33 @@ export const PDFRegionPicker: Component<PDFViewerAppProps> = ({ pdfFilePath }) =
       viewport,
     };
     page.render(renderContext);
+
+  }
+  function onLeftPage() {
+    setPageNumber(val => {
+      if (val == 0) return 0;
+      return val - 1
+    })
+  }
+  function onRightPage() {
+    setPageNumber(val => {
+      if (val < pdfPageCount()) return pdfPageCount();
+      return val - 1
+    })  }
+  onMount(async () => {
+    renderPdf()
   })
 
   return (
     <div class="bg-green-50 p-4 rounded space-y-4">
-      <p class="text-center text-gray-500">Selected FIle: {pdfFilePath}</p>
       <div class="p-4 bg-green-100 mx-auto text-center">
-        <div><input type="checkbox" name="whole-doc"/> <label for="whole-doc">TTS-ify Whole Document</label></div>
 
-        <Button><IoAdd /></Button><Button><ImFolderMinus /></Button><Button><IoArrowUpLeftBox /></Button><Button><IoArrowUpRightBox /></Button> <Button><IoSquare /></Button></div>
+        <div class="flex flex-row justify-center gap gap-4"><Button title="Left Page" onClick={onLeftPage}><IoArrowBackOutline /></Button><Button title="Right Page" onClick={onRightPage}><IoArrowForwardOutline /></Button><Button title="Select Region"><IoSquareOutline /></Button>
+        </div>
+      </div>
 
       <div class="flex-1 relative h-full flex items-center justify-center  flex-col">
-        <canvas id="the-canvas" style="border: 1px solid black; direction: ltr; width: 600px; height: 600px;" ref={(el) => {
+        <canvas id="the-canvas" style="border: 1px solid black; direction: ltr;" width={600} height={800} ref={(el) => {
           canvas = el; // el is created but not yet added to the DOM
         }}></canvas>
       </div>

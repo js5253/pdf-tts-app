@@ -10,12 +10,13 @@ export const commands = {
 	setConfig: (config: TtsAppConfig) => typedError<null, CommandError>(__TAURI_INVOKE("set_config", { config })),
 	getRecentDocs: () => typedError<RecentDoc[], CommandError>(__TAURI_INVOKE("get_recent_docs")),
 	getDownloadedModels: () => typedError<Model[], CommandError>(__TAURI_INVOKE("get_downloaded_models")),
-	runJob: (job: TtsJobConfig, progressReader: Channel<TtsGenerationProgress_Deserialize>) => typedError<null, CommandError>(__TAURI_INVOKE("run_job", { job, progressReader })),
+	runJob: (job: TtsJobConfig) => typedError<null, CommandError>(__TAURI_INVOKE("run_job", { job })),
 	getOnlineModels: () => typedError<Model[], CommandError>(__TAURI_INVOKE("get_online_models")),
 	getCompletedOnboarding: () => typedError<boolean, CommandError>(__TAURI_INVOKE("get_completed_onboarding")),
 	setCompletedOnboarding: (request: CompletedOnboardingRequest, onboardingCh: Channel<HasCompletedOnboarding>) => typedError<null, CommandError>(__TAURI_INVOKE("set_completed_onboarding", { request, onboardingCh })),
 	downloadModel: (modelId: number) => typedError<null, CommandError>(__TAURI_INVOKE("download_model", { modelId })),
 	stopModelDownload: (modelName: string) => typedError<null, CommandError>(__TAURI_INVOKE("stop_model_download", { modelName })),
+	getTtsProgress: () => typedError<TTSRequest[], CommandError>(__TAURI_INVOKE("get_tts_progress")),
 };
 
 /* Types */
@@ -48,6 +49,14 @@ export type RecentDoc = {
 
 export type SupportedTTSType = "Vits" | "Kitten" | "Matcha" | "Kokoro" | "Supertonic";
 
+export type TTSRequest = {
+	url: string,
+	name: string,
+	progress: TTSRequestProgress,
+};
+
+export type TTSRequestProgress = "Queued" | { InProgress: number } | "Completed";
+
 export type TtsAppConfig = {
 	/**  start the narration at a certain page */
 	app_dir: string,
@@ -59,13 +68,8 @@ export type TtsAppConfig = {
 	combine_pages: boolean,
 	speaker_id: number,
 	base_color: string,
+	force_ocr: boolean,
 };
-
-export type TtsGenerationProgress = TtsGenerationProgress_Serialize | TtsGenerationProgress_Deserialize;
-
-export type TtsGenerationProgress_Deserialize = { event: "inProgress"; data: [number | null, (number | null)[] | null] } | { event: "finished" };
-
-export type TtsGenerationProgress_Serialize = { event: "inProgress"; data: [number | null, (number | null)[] | null] } | { event: "finished" };
 
 export type TtsJobConfig = {
 	output_prefix: string,
@@ -77,7 +81,7 @@ export type TtsJobConfig = {
 	combine_pages: boolean,
 	/**  for voices that have multiple speakers, pass a speaker_id. */
 	speaker_id: number,
-	use_ocr: boolean,
+	force_ocr: boolean,
 	input_file: string,
 };
 

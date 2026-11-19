@@ -1,6 +1,8 @@
 use std::{fs, time::Duration};
 
+use crate::config::TtsJobConfig;
 use crate::model_manager::{ModelManager, SupportedTTSType};
+use crate::tts_manager::TTSRequest;
 use crate::{
     config::{self},
     recents::RecentDoc,
@@ -26,14 +28,20 @@ pub enum TtsGenerationProgress {
     Finished,
 }
 
-#[instrument(skip(state, progress_reader))]
+#[instrument(skip(state))]
 #[tauri::command(async)]
 #[specta::specta]
 pub async fn run_job(
     job: config::TtsJobConfig,
     state: tauri::State<'_, AppState>,
-    progress_reader: tauri::ipc::Channel<TtsGenerationProgress>,
 ) -> CommandResult<()> {
     state.tts_manager.send(job).await?;
     Ok(())
+}
+#[instrument(skip(state))]
+#[specta::specta]
+#[tauri::command]
+pub async fn get_tts_progress(state: tauri::State<'_, AppState>,
+) -> CommandResult<Vec<TTSRequest>>{
+    Ok((*state.tts_progress.lock().await.clone()).to_vec())
 }

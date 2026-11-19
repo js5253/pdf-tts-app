@@ -10,6 +10,7 @@ import { RecentPanel } from '../components/RecentPanel';
 import { translateSpectaToSolidResource } from '../util';
 import { SelectRegion } from './SelectRegion';
 import { readFile } from "@tauri-apps/plugin-fs";
+import { AdvancedOptionsPanel } from '../components/AdvancedOptionsPanel';
 // naive attempt at using resources and solidjs better
 const Home = () => {
     const [config] = translateSpectaToSolidResource(commands.getConfig)
@@ -23,7 +24,7 @@ const Home = () => {
         if (message.event == "inProgress") {
             toast("Progress Update: " + (Number(message.data) * 100) + "%")
         } else {
-            navigate("/done")
+            navigate("/progress")
         }
     }
     onCleanup(() => {
@@ -78,12 +79,15 @@ const Home = () => {
     return <Suspense fallback={<></>}>
         <>{currentFilePath() ? <>
             <SelectRegion pdfFilePath={currentFilePath()!} />
-            <div class="flex flex-row gap-4">
-                <button class='border border-green-700 p-2' onClick={clearFile}>Back</button>
-                <button class='border border-green-700 p-2 bg-black text-white' onClick={createTTS}>Continue</button>
+            <div class="flex flex-col gap-4">
+                <div class="flex flex-row gap-4 justify-center">
+                <Button class='border border-green-700 p-2' onClick={clearFile}>Back</Button>
+                <Button class='border border-green-700 p-2 bg-black text-white' onClick={createTTS}>Continue</Button>
+                </div>
+                <AdvancedOptionsPanel />
             </div>
         </> : <div class='flex flex-col items-center justify-center outline outline-green-300 outline-10 outline-dashed p-4 gap-4 my-20'>
-            {isHovering() && <div class='absolute bg-green-400/40 backdrop-blur-md w-screen h-screen top-0 left-0 flex items-center justify-center z-10'>Drop me here!</div>}
+            {isHovering() && <div class='absolute text-2xl bg-green-400/40 backdrop-blur-md w-screen h-screen top-0 left-0 flex items-center justify-center z-10'>Drop me here!</div>}
             <h1 class="text-5xl text-center">Drag your file here</h1>
             <p>or</p>
             <Button className="bg-transparent border border-green-700 p-4 shadow-lg hover:backdrop-brightness-90 hover:text-white" onClick={openFilePicker}>Select A File</Button>
