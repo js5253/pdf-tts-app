@@ -32,6 +32,7 @@ pub struct TtsJobConfig {
     pub force_ocr: bool,
     // end TTS config here
     pub input_file: String,
+    pub ocr_region: Option<[[u32;2]; 2]>
 }
 
 #[derive(Serialize, Debug, Deserialize, Clone, specta::Type)]

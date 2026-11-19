@@ -1,13 +1,16 @@
-import { onMount } from "solid-js";
+import { createSignal, onMount } from "solid-js";
 import { useSettings } from "../context/SettingsContext";
 import { Input } from "./Input";
+import { IoArrowDown, IoSettingsOutline } from "solid-icons/io";
+import classNames from "classnames";
 
 export const AdvancedOptionsPanel = () => {
     const { config } = useSettings();
+        const [isOptionsExpanded, setIsOptionsExpanded] = createSignal<boolean>(false);
     console.log(config())
     return (
-        <div class="backdrop-brightness-95 shadow w-[600px] rounded min-h-48 p-4 flex  flex-col mb-12">
-            <h2 class="text-center font-bold text-xl">Advanced Options</h2>
+        <div class={classNames({"backdrop-brightness-95 shadow w-[600px] rounded overflow-hidden p-4 flex  flex-col mb-12": true, 'max-h-10': isOptionsExpanded()})}>
+            <div class=" flex flex-row font-bold gap-2 justify-center items-center p-2" onClick={() => setIsOptionsExpanded(prev => !prev)}>< IoSettingsOutline />Options</div>
             <form class="grid grid-cols-2 gap-2 items-center">
                 <label for="combinePages">Combine pages into one audio file</label>
                 <Input type="checkbox" name='combinePages' value={config().combine_pages} />

@@ -124,7 +124,7 @@ pub fn run() {
             let cache_mutex = Mutex::new(HashMap::new());
             let recent_arc = Arc::new(recent_tts_mutex);
             let recent_handle = Arc::clone(&recent_arc);
-            let model_arc: Arc<Mutex<Vec<_>>> = Arc::new(Mutex::new(Vec::new()));
+            let model_arc = Arc::new(Mutex::new(Vec::new()));
             let download_handle = Arc::clone(&model_arc);
             let model_mutex = Arc::clone(&model_arc);
             let downloaded_handle = Arc::clone(&model_arc);
@@ -138,15 +138,6 @@ pub fn run() {
                 tts_manager::tts_manager(&tm_path, downloaded_handle, recent_arc, tts_rx, ch).await
             });
 
-            // async_runtime::block_on(async {
-            //     let cached = load_cached_models(&mut model_path)
-            //         .await
-            //         .unwrap_or_default();
-            //     let mut models = models.lock().await;
-            //     *models = cached.into_values().collect();
-            // });
-            // let _ = futures::executor::block_on(async {ModelDownloader::load_downloaded_models(Arc::clone(&cache), &model_path.to_path_buf()).await});
-            // recheck this to make sure passing app.state is fine
             app.manage(AppState {
                 completed_onboarding: Mutex::new(false),
                 settings: Mutex::new(settings),

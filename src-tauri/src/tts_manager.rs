@@ -46,10 +46,10 @@ pub async fn tts_manager(
     progress_reader: Channel<TtsGenerationProgress>,
 ) -> CommandResult<()> {
     info!("Starting TTS manager thread");
-    if fs::read_dir("out").is_err() {
-        fs::create_dir("out")
-            .context("Failed to create output directory")?;
-    }
+    // if fs::read_dir("out").is_err() {
+    //     fs::create_dir("out")
+    //         .context("Failed to create output directory")?;
+    // }
     while let Some(job) = receiver.recv().await {
         let downloaded_models = downloaded_models.lock().await.clone();
         let data_path = data_path.clone();

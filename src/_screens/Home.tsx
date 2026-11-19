@@ -4,23 +4,23 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { createSignal, onCleanup, onMount, Suspense } from "solid-js"
 import { useNavigate } from "@solidjs/router";
 import toast from 'solid-toast';
-import { commands, TtsGenerationProgress } from '../bindings';
+import { commands } from '../bindings';
 import { Button } from '../components/Button';
 import { RecentPanel } from '../components/RecentPanel';
 import { translateSpectaToSolidResource } from '../util';
 import { SelectRegion } from './SelectRegion';
 import { readFile } from "@tauri-apps/plugin-fs";
 import { AdvancedOptionsPanel } from '../components/AdvancedOptionsPanel';
+import { useEventContext } from '../context/EventContext';
 // naive attempt at using resources and solidjs better
 const Home = () => {
     const [config] = translateSpectaToSolidResource(commands.getConfig)
     const navigate = useNavigate();
     const [isHovering, setIsHovering] = createSignal(false);
-    const [file, setFile] = createSignal(null);
-
+    const [fileRegion, setFileRegion] = createSignal<null | [[number, number], [number, number]]>(null);
+    const {onTtsGenerationProgressUpdate} = useEventContext()
     const [currentFilePath, setCurrentFilePath] = createSignal<string | null>(null);
-    const onEvent = new Channel<TtsGenerationProgress>(); // this is probably an erroneous line
-    onEvent.onmessage = (message) => {
+    onTtsGenerationProgressUpdate.onmessage = (message: {event: string; data: string}) => {
         if (message.event == "inProgress") {
             toast("Progress Update: " + (Number(message.data) * 100) + "%")
         } else {
@@ -34,13 +34,13 @@ const Home = () => {
         const appWindow = getCurrentWindow();
         await appWindow.onDragDropEvent(async (event) => {
             if (event.payload.type == 'over') {
+                if (!currentFilePath()?.indexOf('.pdf') && !currentFilePath()?.indexOf('.epub') || !currentFilePath()?.indexOf('.docx')) throw new Error("invalid file type")
                 setIsHovering(true);
             } else if (event.payload.type === 'drop') {
                 setIsHovering(false);
                 const contents = await readFile(event.payload.paths[0])
                 const blob = new Blob([contents], { type: "application/pdf" });
-                const localUrl = URL.createObjectURL(blob);
-                setFile(blob);
+                // const localUrl = URL.createObjectURL(blob);
                 setCurrentFilePath(event.payload.paths[0]);
             } else if (event.payload.type === 'leave') {
                 setIsHovering(false);
@@ -62,14 +62,14 @@ const Home = () => {
         console.log(config())
         if (!config() || !currentFilePath()) return;
         try {
-            if (!currentFilePath()?.indexOf('.pdf') && !currentFilePath()?.indexOf('.epub') || !currentFilePath()?.indexOf('.docx')) throw new Error("invalid file type")
 
             await commands.runJob({
                 ...config()!,
                 voice_id: 1,
                 input_file: currentFilePath()!,
-                use_ocr: false
-            }, onEvent);
+                ocr_region: fileRegion()
+                // force_ocr: false
+            });
         } catch (e) {
             toast("There was an error: " + (e as Error));
             console.log(e)
@@ -78,11 +78,13 @@ const Home = () => {
 
     return <Suspense fallback={<></>}>
         <>{currentFilePath() ? <>
-            <SelectRegion pdfFilePath={currentFilePath()!} />
+            {<p class="text-center text-xl">Current File: {currentFilePath()}</p>}
+            <Button onClick={() => setCurrentFilePath(null)}>Change File</Button>
+            <SelectRegion pdfFilePath={currentFilePath()!} fileRegion={fileRegion} setFileRegion={setFileRegion} />
             <div class="flex flex-col gap-4">
                 <div class="flex flex-row gap-4 justify-center">
-                <Button class='border border-green-700 p-2' onClick={clearFile}>Back</Button>
-                <Button class='border border-green-700 p-2 bg-black text-white' onClick={createTTS}>Continue</Button>
+                <Button className='border border-green-700 p-2' onClick={clearFile}>Back</Button>
+                <Button className='border border-green-700 p-2 bg-black text-white' onClick={createTTS}>Continue</Button>
                 </div>
                 <AdvancedOptionsPanel />
             </div>

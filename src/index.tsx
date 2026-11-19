@@ -5,7 +5,6 @@ import { AppBar } from "./components/AppBar";
 import "./App.css";
 import { Home } from "./_screens/Home";
 import { Settings } from "./_screens/Settings";
-import { Done } from "./_screens/JobProgress";
 import { Toaster } from "solid-toast";
 import { Onboarding } from "./_screens/Onboarding";
 import { ParentProps, Suspense } from "solid-js";

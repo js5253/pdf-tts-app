@@ -16,9 +16,9 @@ export const JobProgress = () => {
     createEffect(() => {
         jobs()?.forEach(job => {
             if (job.progress == "Completed") {
-                setDoneJobs(items => ([...items, job]));
+                setDoneJobs(items => (items ? [...items, job] : [job]));
             } else {
-                setInProgressJobs(items => ([...items, job]));
+                setInProgressJobs(items => (items ? [...items, job] : [job]));
 
             }
         })

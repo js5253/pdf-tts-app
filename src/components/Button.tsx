@@ -6,7 +6,7 @@ import { ParentProps } from 'solid-js'
 type ButtonProps = {
     onClick: () => void,
     className?: string,
-    title: string
+    title?: string
 }
 export const Button = ({title, children, onClick, className}: ParentProps & ButtonProps) => {
     return <button title={title} class={classNames("p-2 bg-green-400 shadow rounded hover:bg-green-500", className)}  onClick={onClick}>

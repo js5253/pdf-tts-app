@@ -16,7 +16,7 @@ export const RecentPanel = () => {
                 {recents()?.map(recent => (
                     <RecentPanelButton name={recent.name} key={recent.id}/>
                 ))}
-            <div class="border border-gray-400 min-w-40 min-h-20 p-2 text-gray-400 rounded">TTS Recordings will appear here when you do them</div>
+            {recents?.length == 0 && <div class="border border-gray-400 min-w-40 min-h-20 p-2 text-gray-400 rounded">TTS Recordings will appear here when you do them</div>}
             </div>
         </div>
 
