@@ -16,7 +16,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use tokio::sync::mpsc;
-use tracing::{info, instrument};
+use tracing::{error, info, instrument};
 
 const SHERPA_URL: &str = "https://api.github.com/repos/k2-fsa/sherpa-onnx/releases/tags/tts-models";
 
@@ -237,7 +237,7 @@ impl Model {
 #[derive(Deserialize)]
 struct GithubAsset {
     name: String,
-    url: String,
+    #[serde(alias = "browser_download_url")]
     browser_download_url: String,
     id: u32,
 }
@@ -396,12 +396,12 @@ impl ModelManager {
                 .send()
                 .await
                 .map_err(|e| {
-                    info!("{}", e);
+                    error!("{}: Req Status {:?}", e, e.status());
                     anyhow!("Could not download model list.")
                 })?
                 .error_for_status()
                 .map_err(|e| {
-                    info!("Failed to get HTTP request: {}", e);
+                    error!("Failed to get HTTP request: {}", e);
                     anyhow!("Could not download model list.")
                 })?
                 .json::<GithubModelResponse>()

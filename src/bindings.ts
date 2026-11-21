@@ -74,33 +74,35 @@ export type TtsAppConfig = {
 export type TtsJobConfig = TtsJobConfig_Serialize | TtsJobConfig_Deserialize;
 
 export type TtsJobConfig_Deserialize = {
-	output_prefix: string,
+	/**  start the narration at a certain page */
+	app_dir: string,
 	output_dir: string,
 	start_page: number,
-	/**  sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html */
-	voice_id: number,
+	output_prefix: string,
+	voice: number,
 	speed: number | null,
 	combine_pages: boolean,
-	/**  for voices that have multiple speakers, pass a speaker_id. */
 	speaker_id: number,
+	base_color: string,
 	force_ocr: boolean,
-	input_file: string,
 	ocr_region?: [([number, number]), ([number, number])] | null,
+	input_file: string,
 };
 
 export type TtsJobConfig_Serialize = {
-	output_prefix: string,
+	/**  start the narration at a certain page */
+	app_dir: string,
 	output_dir: string,
 	start_page: number,
-	/**  sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html */
-	voice_id: number,
+	output_prefix: string,
+	voice: number,
 	speed: number | null,
 	combine_pages: boolean,
-	/**  for voices that have multiple speakers, pass a speaker_id. */
 	speaker_id: number,
+	base_color: string,
 	force_ocr: boolean,
-	input_file: string,
 	ocr_region: [([number, number]), ([number, number])] | null,
+	input_file: string,
 };
 
 /* Tauri Specta runtime */

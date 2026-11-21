@@ -10,8 +10,8 @@ use std::{
 };
 use tauri::{ipc::Channel, Manager};
 use tauri_specta::{collect_commands, Builder};
-use tokio::sync::{mpsc, Mutex};
-use tracing::info;
+use tokio::sync::{Mutex, OnceCell, mpsc};
+use tracing::{error, info};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 mod config;
 mod download_manager;
@@ -36,12 +36,15 @@ use tts::{run_job, get_tts_progress};
 
 use crate::model_manager::stop_model_download;
 use crate::tts_manager::TTSRequest;
+use crate::util::CommandError;
 use crate::{
     config::TtsJobConfig,
     download_manager::DownloadRequest,
     model_manager::{download_model, get_online_models},
     tts::TtsGenerationProgress,
 };
+
+pub static ERROR_CHANNEL: OnceCell<Channel<CommandError>> = OnceCell::const_new();
 
 struct AppState {
     settings: Mutex<TtsAppConfig>,
@@ -128,6 +131,7 @@ pub fn run() {
             let downloaded_handle = Arc::clone(&model_arc);
             let dm_path = app_dir.clone();
             let tm_path = app_dir.clone();
+            let _ = ERROR_CHANNEL.set(Channel::new(|_| Ok(())));
             let ch: Channel<TtsGenerationProgress> = Channel::new(|_| Ok(()));
             tauri::async_runtime::spawn(async move {
                 download_manager::download_manager(&dm_path, download_handle, download_rx).await
@@ -169,8 +173,10 @@ pub fn run() {
             get_tts_progress
         ])
         .run(tauri::generate_context!())
-        .expect("Error running app");
-    // .map_err(|err| {
-    //     error!("{}", err);
-    // });
+    .map_err(|err| {
+        error!("{}", err);
+        if let Some(ch) = ERROR_CHANNEL.get() {
+            let _ = ch.send(err.into());
+        }
+    }).expect("Error with app");
 }

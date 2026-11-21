@@ -55,7 +55,7 @@ pub async fn tts_manager(
             let mut p = get_page_contents(&PathBuf::from(job.input_file), job.force_ocr, job.start_page, job.ocr_region)?;
             p.sort_by_key(|item| item.index);
 
-            let model = ModelManager::get_model(job.voice_id, &downloaded_models).await?;
+            let model = ModelManager::get_model(job.voice, &downloaded_models).await?;
             let current_path = data_path.clone().join(format!("tts/{}", model.id));
             println!("{:?}", current_path);
             // let dir = fs::read_dir(&current_path).map_err(|_| anyhow!("Could not get dir"))?;

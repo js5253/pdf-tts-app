@@ -18,9 +18,9 @@ const Home = () => {
     const navigate = useNavigate();
     const [isHovering, setIsHovering] = createSignal(false);
     const [fileRegion, setFileRegion] = createSignal<null | [[number, number], [number, number]]>(null);
-    const {onTtsGenerationProgressUpdate} = useEventContext()
+    const { onTtsGenerationProgressUpdate } = useEventContext()
     const [currentFilePath, setCurrentFilePath] = createSignal<string | null>(null);
-    onTtsGenerationProgressUpdate.onmessage = (message: {event: string; data: string}) => {
+    onTtsGenerationProgressUpdate.onmessage = (message: { event: string; data: string }) => {
         if (message.event == "inProgress") {
             toast("Progress Update: " + (Number(message.data) * 100) + "%")
         } else {
@@ -79,13 +79,13 @@ const Home = () => {
     return <Suspense fallback={<></>}>
         <>{currentFilePath() ? <>
             {<p class="text-center text-xl">Current File: {currentFilePath()}</p>}
-            <Button onClick={() => setCurrentFilePath(null)}>Change File</Button>
-            <SelectRegion pdfFilePath={currentFilePath()!} fileRegion={fileRegion} setFileRegion={setFileRegion} />
-            <div class="flex flex-col gap-4">
-                <div class="flex flex-row gap-4 justify-center">
+
+            <div class="flex flex-row gap-4 justify-center">
                 <Button className='border border-green-700 p-2' onClick={clearFile}>Back</Button>
                 <Button className='border border-green-700 p-2 bg-black text-white' onClick={createTTS}>Continue</Button>
-                </div>
+            </div>
+            <SelectRegion pdfFilePath={currentFilePath()!} fileRegion={fileRegion} setFileRegion={setFileRegion} />
+            <div class="flex flex-col gap-4">
                 <AdvancedOptionsPanel />
             </div>
         </> : <div class='flex flex-col items-center justify-center outline outline-green-300 outline-10 outline-dashed p-4 gap-4 my-20'>

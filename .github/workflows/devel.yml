@@ -7,11 +7,14 @@ on:
     branches: ["neo"]
 env:
   CARGO_TERM_COLOR: always
-
+permissions: 
+  contents: write
 jobs:
   build:
-    runs-on: ubuntu-26.04
-
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - name: Checkout Git Repo
         uses: actions/checkout@v3
@@ -21,6 +24,7 @@ jobs:
           && echo "RELEASE_VERSION=$(git rev-parse --short HEAD)" | tee -a $GITHUB_ENV
       - name: Update packages
         run: sudo apt update
+        if: runner.os == 'Linux'
 
       - name: Install TTS dependencies (onnxruntime +)
         run: |
@@ -34,16 +38,20 @@ jobs:
           libsoup-3.0-dev \
           libjavascriptcoregtk-4.1-dev \
           libwebkit2gtk-4.1-dev
+        if: runner.os == 'Linux'
       - name: Install yarn dependencies
         run: yarn --frozen-lockfile
       - name: Build (Linux)
-        run: yarn tauri build
+        run: yarn tauri build --no-bundle
+      - name: Bundle
+        run: yarn tauri bundle --bundles app #,dmg
     #   - name: Run tests
         # run: cargo test --verbose
       - name: Upload release
         uses: softprops/action-gh-release@v3
         with: 
           tag_name: dev-${{env.RELEASE_VERSION}}
+          generate_release_notes: true
           files: |
             Release.txt
             target/release/drp

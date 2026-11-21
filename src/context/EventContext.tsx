@@ -1,6 +1,7 @@
 import { createContext, ParentProps, useContext } from "solid-js";
-import { DownloadManagerProgress, HasCompletedOnboarding, TTSRequestProgress } from "../bindings";
+import { CommandError, DownloadManagerProgress, HasCompletedOnboarding, TTSRequestProgress } from "../bindings";
 import { Channel } from "@tauri-apps/api/core";
+import toast from "solid-toast";
 interface EventContextProps {
     onHasCompletedOnboarding: Channel<HasCompletedOnboarding>,
     onTtsGenerationProgressUpdate: Channel<TTSRequestProgress>,
@@ -10,7 +11,13 @@ const EventContext = createContext<EventContextProps>();
 const EventContextProvider = (props: ParentProps) => {
     const onHasCompletedOnboarding = new Channel<HasCompletedOnboarding>();
     const onTtsGenerationProgressUpdate = new Channel<TTSRequestProgress>(); 
+    const onError = new Channel<CommandError>();
     const onModelDownloadProgressUpdate = new Channel<DownloadManagerProgress>(); 
+
+    onError.onmessage = (err) => {
+        toast.error("Error:" + err)
+    }
+
     return <EventContext.Provider value={
         {
             onHasCompletedOnboarding,

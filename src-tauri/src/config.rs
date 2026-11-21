@@ -19,22 +19,23 @@ pub struct CompletedOnboardingRequest(bool);
 pub struct HasCompletedOnboarding;
 // #[derive(Debug)]
 
-#[derive(Serialize, Deserialize, Debug, specta::Type)]
+#[derive(Serialize, Debug, Deserialize, Clone, specta::Type)]
 pub struct TtsJobConfig {
-    pub output_prefix: String,
+    /// start the narration at a certain page
+    pub app_dir: PathBuf,
     pub output_dir: PathBuf,
     pub start_page: u32,
-    /// sets a voice for the narration. see https://k2-fsa.github.io/sherpa/onnx/tts/pretrained_models/index.html
-    pub voice_id: u32,
+    pub output_prefix: String,
+    pub voice: u32,
     pub speed: f32,
     pub combine_pages: bool,
-    /// for voices that have multiple speakers, pass a speaker_id.
     pub speaker_id: u32,
+    pub base_color: String,
     pub force_ocr: bool,
-    // end TTS config here
-    pub input_file: String,
-    pub ocr_region: Option<[[u32;2]; 2]>
+    pub ocr_region: Option<[[u32;2];2]>,
+    pub input_file: String
 }
+
 
 #[derive(Serialize, Debug, Deserialize, Clone, specta::Type)]
 pub struct TtsAppConfig {
