@@ -1,5 +1,8 @@
 use crate::{
-    AppState, config::ConfigFileStruct, download_manager::{DownloadRequest, DownloadRequestType}, util::CommandResult,
+    config::ConfigFileStruct,
+    download_manager::{DownloadRequest, DownloadRequestType},
+    util::CommandResult,
+    AppState,
 };
 use anyhow::{anyhow, Context};
 use futures::TryStreamExt;
@@ -13,7 +16,7 @@ use sherpa_onnx::{
 use std::{
     collections::HashMap,
     fs::{self, File},
-    io::Read,
+    io::{Read, Write},
     path::{Path, PathBuf},
 };
 use tokio::sync::mpsc;
@@ -84,7 +87,7 @@ pub struct Model {
     pub name: String,
     pub url: String,
     pub id: u32,
-    pub size: usize
+    pub size: usize,
 }
 impl Model {
     pub fn get_config(&self, base_dir: &Path) -> CommandResult<TTSModelConfig> {
@@ -245,7 +248,7 @@ struct GithubAsset {
     #[serde(alias = "browser_download_url")]
     url: String,
     id: u32,
-    size: usize
+    size: usize,
 }
 #[derive(Deserialize)]
 struct GithubModelResponse {
@@ -362,6 +365,19 @@ impl TryInto<OfflineTtsConfig> for TTSModelConfig {
 
 pub struct ModelManager;
 impl ModelManager {
+    pub fn set_model_downloaded(
+        models: &mut HashMap<u32, Model>,
+        data_path: &Path,
+    ) -> CommandResult<()> {
+        let mut data_path = data_path.to_path_buf();
+        data_path.push("models.toml");
+        let mut contents = File::create(data_path)?;
+
+        contents.write_all(toml::to_string(&models)?.as_bytes())?;
+
+        Ok(())
+    }
+
     #[instrument]
     pub fn preload_cached_online(cache_location: &PathBuf) -> CommandResult<HashMap<u32, Model>> {
         let mut cache_location = cache_location.clone();
@@ -369,13 +385,13 @@ impl ModelManager {
         let mut models = File::open(cache_location)?;
         let mut buf = String::new();
         models.read_to_string(&mut buf)?;
-        let m: Result<ConfigFileStruct<HashMap<u32, Model>>, toml::de::Error> = toml::from_str(buf.as_str());
+        let m: Result<ConfigFileStruct<HashMap<u32, Model>>, toml::de::Error> =
+            toml::from_str(buf.as_str());
         if let Ok(m) = m {
             Ok(m.contents)
         } else {
             Ok(HashMap::new())
         }
-
     }
     #[instrument]
     pub fn preload_cached_downloaded(
@@ -393,7 +409,6 @@ impl ModelManager {
             Ok(HashMap::new())
         }
         // File::new
-
     }
     #[instrument]
     pub async fn get_model(
@@ -466,8 +481,8 @@ impl ModelManager {
                                 name: item.name.clone(),
                                 url: item.url.clone(),
                                 id: item.id,
-                                r#type, 
-                                size: item.size
+                                r#type,
+                                size: item.size,
                             },
                         ));
                     }

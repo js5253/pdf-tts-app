@@ -1,10 +1,11 @@
+use crate::model_manager::ModelManager;
 use crate::models::DownloadManagerProgress;
 use crate::{model_manager::Model, util::CommandResult};
 use anyhow::anyhow;
 use futures::StreamExt;
 use image::EncodableLayout;
-use log::error;
 use serde::{Deserialize, Serialize};
+use std::ops::DerefMut;
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tauri::ipc::Channel;
 use tokio::{fs::File, io::AsyncWriteExt};
@@ -25,7 +26,7 @@ pub struct DownloadRequest {
     pub r#type: DownloadRequestType,
 }
 #[instrument(skip(progress))]
-pub async fn download_manager<'a>(
+pub async fn download_manager(
     data_path: &PathBuf,
     downloaded_models: Arc<Mutex<HashMap<u32, Model>>>,
     mut receiver: mpsc::Receiver<DownloadRequest>,
@@ -38,7 +39,7 @@ pub async fn download_manager<'a>(
     while let Some(req) = receiver.recv().await {
         let data_path = data_path.clone();
         let thread_token = Arc::clone(&thread_token);
-
+        let downloaded_models = Arc::clone(&downloaded_models);
         match req.r#type {
             DownloadRequestType::CancelDownload => {
                 let token = cancellation_tokens.lock().await;
@@ -50,7 +51,7 @@ pub async fn download_manager<'a>(
             DownloadRequestType::Download => {
                 let a: Option<Model> = {
                     let binding = downloaded_models.lock().await;
-                    let binding = binding.get(&req.id).clone();
+                    let binding = binding.get(&req.id);
                     binding.map(|item| item.to_owned())
                 };
                 let Some(model) = a else {
@@ -94,7 +95,7 @@ pub async fn download_manager<'a>(
                         let prev = offset;
                         offset += chunk.len();
                         if offset > prev - 5000 {
-                            progress.send(DownloadManagerProgress {
+                            let _unused = progress.send(DownloadManagerProgress {
                                 name: model.name.clone(),
                                 id: model.id,
                                 progress: offset / model.size,
@@ -102,7 +103,7 @@ pub async fn download_manager<'a>(
                             });
                         }
                     }
-                    progress.send(DownloadManagerProgress {
+                    let _unused = progress.send(DownloadManagerProgress {
                         name: model.name.clone(),
                         id: model.id,
                         progress: offset / model.size,
@@ -110,6 +111,11 @@ pub async fn download_manager<'a>(
                     });
                     info!("Downloaded file {:?} at {:?}", &req_path.to_str(), dest);
                     let _ = thread_token.lock().await.insert(model.id, token);
+                    {
+                        let mut models = downloaded_models.lock().await;
+                        models.insert(model.id, model);
+                        let _ = ModelManager::set_model_downloaded(models.deref_mut(), &data_path);
+                    };
                     Ok(())
                 });
             }
