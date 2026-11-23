@@ -5,21 +5,35 @@ import { IoArrowDown, IoDownload, IoInformationCircle, IoPlay, IoWarning } from 
 import { Button } from "./Button";
 import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { appDataDir, BaseDirectory } from "@tauri-apps/api/path";
+import { JSX } from "solid-js/h/jsx-runtime";
+
+const languages = {
+    "english": "en",
+    "spanish": "es",
+    "french": "fr"
+}
 
 export const TTSVoiceManager = () => {
     const [originalModels, { refetch }] = translateSpectaToSolidResource(commands.getOnlineModels);
     const [models, setModels] = createSignal(originalModels());
+    const [language, setLanguage] = createSignal<undefined | string>();
     const [dataDir] = createResource<string>(appDataDir);
     const [isExpanded, setIsExpanded] = createSignal<boolean>(false);
     const [search, setSearch] = createSignal("");
+    // const langs = new Map(Object.entries(languages))
     createEffect(() => {
         if (!originalModels()) return;
         setModels(originalModels())
     })
-    const updateSearch = (e) => {
-        setSearch(e.target.value);
+    const updateSearch: JSX.EventHandler<HTMLInputElement, KeyboardEvent> = (e) => {
+        setSearch(e.currentTarget.value);
+        if (!search() || search() == "") setModels(originalModels()) 
 
-        setModels(originalModels()?.filter(model => model.name.includes(e.target.value)))
+        setModels(originalModels()?.filter(model => model.name.includes(e.currentTarget.value)))
+    }
+    const updateLanguageFilter: JSX.EventHandler<HTMLSelectElement, MouseEvent> = (e) => {
+        // if (!language()) return;
+        setModels(originalModels()?.filter(model => model.name.includes("-" + languages[e.currentTarget.value])));
     }
     const onDownloadRequested = async (id: number) => {
         await commands.downloadModel(id);
@@ -44,11 +58,11 @@ export const TTSVoiceManager = () => {
                     <div class="flex flex-row items-center gap-2 rounded">
                         <label for="search">Search</label>
                         <input type="text" name="search" class="bg-white p-2" onChange={updateSearch} value={search()}/>
-                        Language: <select>
+                        Language: <select onChange={updateLanguageFilter} value={language()}>
                             <option>All</option>
-                            <option>English</option>
-                            <option>Spanish</option>
-                            <option></option>
+                            {Object.keys(languages).map(item => {
+                                return <select>{item}</select>
+                            }) }
                         </select>
                     </div>
                     <ul class="flex flex-col gap-2">

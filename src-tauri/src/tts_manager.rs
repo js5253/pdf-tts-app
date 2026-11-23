@@ -14,7 +14,7 @@ use tauri::ipc::Channel;
 use uuid::Uuid;
 
 use std::{
-    path::PathBuf, sync::Arc, time::{Duration, Instant},
+    collections::HashMap, path::PathBuf, sync::Arc, time::{Duration, Instant},
 };
 use tokio::{sync::{Mutex, mpsc}, task::JoinHandle};
 use tracing::{info, instrument};
@@ -35,7 +35,7 @@ pub struct TTSRequest {
 #[instrument(skip(progress_reader))]
 pub async fn tts_manager(
     data_path: &PathBuf,
-    downloaded_models: Arc<Mutex<Vec<Model>>>,
+    downloaded_models: Arc<Mutex<HashMap<u32, Model>>>,
     recent_tts: Arc<Mutex<Vec<RecentDoc>>>,
     mut receiver: mpsc::Receiver<TtsJobConfig>,
     progress_reader: Channel<TtsGenerationProgress>,
@@ -54,7 +54,7 @@ pub async fn tts_manager(
             info!("Creating job with config: {:?}", job);
             let mut p = get_page_contents(&PathBuf::from(job.input_file), job.force_ocr, job.start_page, job.ocr_region)?;
             p.sort_by_key(|item| item.index);
-
+            println!("{} {:?}", job.voice, downloaded_models);
             let model = ModelManager::get_model(job.voice, &downloaded_models).await?;
             let current_path = data_path.clone().join(format!("tts/{}", model.id));
             println!("{:?}", current_path);
@@ -62,6 +62,7 @@ pub async fn tts_manager(
             let config = model.get_config(&data_path)?;
             let tts = OfflineTts::create(&config.try_into()?)
                 .ok_or(anyhow!("Failed to create offline TTS"))?;
+            println!("Created offline tts");
             let id: String = Uuid::new_v4().into();
             let gen_config = GenerationConfig {
                 sid: job.speaker_id as i32,

@@ -65,7 +65,7 @@ const Home = () => {
 
             await commands.runJob({
                 ...config()!,
-                voice_id: 1,
+                voice: 1,
                 input_file: currentFilePath()!,
                 ocr_region: fileRegion()
                 // force_ocr: false

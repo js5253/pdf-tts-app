@@ -34,7 +34,7 @@ use models::{
 use recents::{get_recent_docs, RecentDoc};
 use tts::{run_job, get_tts_progress};
 
-use crate::model_manager::stop_model_download;
+use crate::model_manager::{ModelManager, stop_model_download};
 use crate::tts_manager::TTSRequest;
 use crate::util::CommandError;
 use crate::{
@@ -50,7 +50,7 @@ struct AppState {
     settings: Mutex<TtsAppConfig>,
     completed_onboarding: Mutex<bool>,
     recent_tts: Arc<Mutex<Vec<RecentDoc>>>,
-    downloaded_models: Arc<Mutex<Vec<Model>>>,
+    downloaded_models: Arc<Mutex<HashMap<u32, Model>>>,
     cached_online_models: Mutex<HashMap<u32, Model>>,
     download_progress: Arc<Mutex<Vec<DownloadManagerProgress>>>,
     gh_access_token: &'static str,
@@ -122,10 +122,12 @@ pub fn run() {
             }
             let settings = TtsAppConfig::load_or_default(&app_dir);
             let recent_tts_mutex = Mutex::new(Vec::new());
-            let cache_mutex = Mutex::new(HashMap::new());
+            #[allow(clippy::unwrap_used)]
+            let cache_mutex = Mutex::new(ModelManager::preload_cached_online(&app_dir).unwrap());
             let recent_arc = Arc::new(recent_tts_mutex);
             let recent_handle = Arc::clone(&recent_arc);
-            let model_arc = Arc::new(Mutex::new(Vec::new()));
+            #[allow(clippy::unwrap_used)]
+            let model_arc = Arc::new(Mutex::new(ModelManager::preload_cached_downloaded(&app_dir).unwrap()));
             let download_handle = Arc::clone(&model_arc);
             let model_mutex = Arc::clone(&model_arc);
             let downloaded_handle = Arc::clone(&model_arc);
@@ -139,7 +141,6 @@ pub fn run() {
             tauri::async_runtime::spawn(async move {
                 tts_manager::tts_manager(&tm_path, downloaded_handle, recent_arc, tts_rx, ch).await
             });
-
             app.manage(AppState {
                 completed_onboarding: Mutex::new(false),
                 settings: Mutex::new(settings),

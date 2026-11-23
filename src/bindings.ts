@@ -39,6 +39,7 @@ export type Model = {
 	name: string,
 	url: string,
 	id: number,
+	size: number,
 };
 
 export type RecentDoc = {

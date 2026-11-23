@@ -73,7 +73,7 @@ export const SelectRegion = ({ pdfFilePath, fileRegion, setFileRegion }: PdfPath
       transform,
       viewport,
     });
-    page()?.render(renderContext()!);
+    // page()?.render(renderContext()!);
 
   }
   const onMouseMove: JSX.EventHandler<HTMLCanvasElement, MouseEvent> = (e) => {
@@ -113,7 +113,7 @@ export const SelectRegion = ({ pdfFilePath, fileRegion, setFileRegion }: PdfPath
     setIsRectangleSelectionOpen(val => !val);
   }
   onMount(async () => {
-    renderPdf()
+    // renderPdf()
   })
   const watchRectangleRegion: JSX.EventHandler<HTMLCanvasElement, MouseEvent> = (e) => {
     if (!isRectangleSelectionOpen()) return;

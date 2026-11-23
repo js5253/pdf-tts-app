@@ -83,28 +83,25 @@ fn run_pdf_ocr(
     if let Some(range) = range {
         config = config.clip( range[0][0] as i32, range[0][1] as i32, range[1][0] as i32, range[1][1] as i32);
     }
-    let page_images: Vec<PdfBitmap<'_>> = file
+    let mut bmps: Vec<PdfBitmap> = Vec::new();
+    file
         .pages()
         .iter()
-        .map(|page| {
+        .for_each(|page| {
             let width = page.width().value;
             let height = page.height().value;
-            let mut bitmap =
-                PdfBitmap::empty(width as Pixels, height as Pixels, PdfBitmapFormat::Gray)
-                    .map_err(|_| anyhow!("Failed to render PDF to an image"))
-                    .unwrap();
-            let _ = page.render_into_bitmap_with_config(&mut bitmap, &config);
-            bitmap
-        })
-        .collect();
+            let mut bmp = PdfBitmap::empty(width as Pixels, height as Pixels, PdfBitmapFormat::Gray).map_err(|_| anyhow!("ABC")).expect("ABC");
+            page.render_into_bitmap_with_config(&mut bmp, &config).ok();
+            bmps.push(bmp);
+        });
 
-    let pages: Vec<Page> = page_images
+    let pages: Vec<Page> = bmps
         .par_iter()
         .enumerate()
         .filter_map(|(idx, image)| {
             Some(Page {
                 index: idx as u32,
-                contents: text_from_image(&image.as_image().map_err(|_| anyhow!("ABC")).ok()?).unwrap(),
+                contents: text_from_image(&image.as_image().ok()?).ok()?
             })
         })
         .collect();

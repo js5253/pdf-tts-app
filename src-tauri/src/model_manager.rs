@@ -1,5 +1,5 @@
 use crate::{
-    AppState, download_manager::{DownloadRequest, DownloadRequestType}, util::CommandResult,
+    AppState, config::ConfigFileStruct, download_manager::{DownloadRequest, DownloadRequestType}, util::CommandResult,
 };
 use anyhow::{anyhow, Context};
 use futures::TryStreamExt;
@@ -12,7 +12,8 @@ use sherpa_onnx::{
 };
 use std::{
     collections::HashMap,
-    fs,
+    fs::{self, File},
+    io::Read,
     path::{Path, PathBuf},
 };
 use tokio::sync::mpsc;
@@ -32,8 +33,18 @@ pub async fn load_cached_models(data_path: &PathBuf) -> CommandResult<HashMap<u3
 #[tauri::command(async)]
 #[specta::specta]
 #[instrument(skip(state))]
-pub async fn stop_model_download(state: tauri::State<'_, AppState>, model_name: String) -> CommandResult<()>{
-    state.download_manager.send(DownloadRequest { url:  None, name: Some(model_name), r#type: DownloadRequestType::CancelDownload }).await?;
+pub async fn stop_model_download(
+    state: tauri::State<'_, AppState>,
+    model_name: String,
+) -> CommandResult<()> {
+    state
+        .download_manager
+        .send(DownloadRequest {
+            url: None,
+            name: Some(model_name),
+            r#type: DownloadRequestType::CancelDownload,
+        })
+        .await?;
     Ok(())
 }
 
@@ -42,14 +53,12 @@ pub async fn stop_model_download(state: tauri::State<'_, AppState>, model_name: 
 #[instrument(skip(state))]
 pub async fn get_online_models(state: tauri::State<'_, AppState>) -> CommandResult<Vec<Model>> {
     let mut models = {
-        let models = state
-            .cached_online_models
-            .lock()
-            .await;
+        let models = state.cached_online_models.lock().await;
         models.clone()
     };
     let result =
-        ModelManager::get_online_models(state.gh_access_token, &state.app_dir, false, &mut models).await;
+        ModelManager::get_online_models(state.gh_access_token, &state.app_dir, false, &mut models)
+            .await;
     result
 }
 #[tauri::command(async)]
@@ -57,10 +66,7 @@ pub async fn get_online_models(state: tauri::State<'_, AppState>) -> CommandResu
 #[instrument(skip(state))]
 pub async fn download_model(model_id: u32, state: tauri::State<'_, AppState>) -> CommandResult<()> {
     let model = {
-        let downloaded_model = state
-            .cached_online_models
-            .lock()
-            .await;
+        let downloaded_model = state.cached_online_models.lock().await;
         let model = downloaded_model
             .get(&model_id)
             .ok_or(anyhow!("Could not find model in list"))?
@@ -68,8 +74,7 @@ pub async fn download_model(model_id: u32, state: tauri::State<'_, AppState>) ->
         info!("Requested model download {:?}", model);
         model
     };
-    ModelManager::download_model(model, &state.download_manager)
-        .await?;
+    ModelManager::download_model(model, &state.download_manager).await?;
 
     Ok(())
 }
@@ -80,6 +85,7 @@ pub struct Model {
     pub name: String,
     pub url: String,
     pub id: u32,
+    pub size: u32
 }
 impl Model {
     pub fn get_config(&self, base_dir: &Path) -> CommandResult<TTSModelConfig> {
@@ -238,8 +244,9 @@ impl Model {
 struct GithubAsset {
     name: String,
     #[serde(alias = "browser_download_url")]
-    browser_download_url: String,
+    url: String,
     id: u32,
+    size: u32
 }
 #[derive(Deserialize)]
 struct GithubModelResponse {
@@ -357,12 +364,44 @@ impl TryInto<OfflineTtsConfig> for TTSModelConfig {
 pub struct ModelManager;
 impl ModelManager {
     #[instrument]
-    pub async fn get_model(id: u32, cached_online_models: &Vec<Model>) -> CommandResult<Model> {
-        let model = cached_online_models
-            .iter()
-            .find(|item| item.id == id)
-            .ok_or_else(|| anyhow!(""))?.to_owned();
-        Ok(model)
+    pub fn preload_cached_online(cache_location: &PathBuf) -> CommandResult<HashMap<u32, Model>> {
+        let mut cache_location = cache_location.clone();
+        cache_location.push("cache.toml");
+        let mut models = File::open(cache_location)?;
+        let mut buf = String::new();
+        models.read_to_string(&mut buf)?;
+        let m: Result<ConfigFileStruct<HashMap<u32, Model>>, toml::de::Error> = toml::from_str(buf.as_str());
+        if let Ok(m) = m {
+            Ok(m.contents)
+        } else {
+            Ok(HashMap::new())
+        }
+
+    }
+    #[instrument]
+    pub fn preload_cached_downloaded(
+        cache_location: &PathBuf,
+    ) -> CommandResult<HashMap<u32, Model>> {
+        let mut cache_location = cache_location.clone();
+        cache_location.push("downloaded.toml");
+        let cache_file = File::open(cache_location);
+        if let Ok(mut cache_file) = cache_file {
+            let mut buf = String::new();
+            cache_file.read_to_string(&mut buf)?;
+            let m: HashMap<u32, Model> = toml::from_str(buf.as_str())?;
+            Ok(m)
+        } else {
+            Ok(HashMap::new())
+        }
+        // File::new
+
+    }
+    #[instrument]
+    pub async fn get_model(
+        id: u32,
+        cached_online_models: &HashMap<u32, Model>,
+    ) -> CommandResult<Model> {
+        Ok(cached_online_models.get(&id).ok_or(anyhow!("A"))?.clone())
     }
 
     #[instrument]
@@ -370,9 +409,11 @@ impl ModelManager {
         id: u32,
         cached_online_models: &HashMap<u32, Model>,
     ) -> CommandResult<Model> {
-        let model = cached_online_models.get(&id).ok_or(anyhow!("")).map(|item| item.to_owned());
+        let model = cached_online_models
+            .get(&id)
+            .ok_or(anyhow!(""))
+            .map(|item| item.to_owned());
         Ok(model?)
-
     }
     #[instrument]
     async fn get_online_models(
@@ -420,16 +461,16 @@ impl ModelManager {
 
                     r#type.as_ref()?;
                     if let Some(r#type) = r#type {
-                    return Some((
-                        item.id,
-                        Model {
-                            name: item.name.clone(),
-                            url: item.browser_download_url.clone(),
-                            id: item.id,
-                            r#type,
-                        },
-                    ));
-
+                        return Some((
+                            item.id,
+                            Model {
+                                name: item.name.clone(),
+                                url: item.url.clone(),
+                                id: item.id,
+                                r#type, 
+                                size: item.size
+                            },
+                        ));
                     }
                     None
                 })
@@ -447,7 +488,7 @@ impl ModelManager {
         tx.send(DownloadRequest {
             name: Some(model.name.clone()),
             url: Some(model.url.clone()),
-            r#type: DownloadRequestType::Download
+            r#type: DownloadRequestType::Download,
         })
         .await?;
         Ok(())

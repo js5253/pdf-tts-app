@@ -18,7 +18,11 @@ pub struct CompletedOnboardingRequest(bool);
 #[serde(rename_all = "camelCase")]
 pub struct HasCompletedOnboarding;
 // #[derive(Debug)]
-
+#[derive(Serialize, Deserialize)]
+pub struct ConfigFileStruct<T> {
+    pub version: u32,
+    pub contents: T
+}
 #[derive(Serialize, Debug, Deserialize, Clone, specta::Type)]
 pub struct TtsJobConfig {
     /// start the narration at a certain page

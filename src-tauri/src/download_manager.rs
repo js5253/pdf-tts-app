@@ -2,6 +2,7 @@ use crate::{model_manager::Model, util::CommandResult};
 use anyhow::anyhow;
 use futures::StreamExt;
 use image::EncodableLayout;
+use log::error;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tokio::{fs::File, io::AsyncWriteExt};
@@ -25,7 +26,7 @@ pub struct DownloadRequest {
 #[instrument]
 pub async fn download_manager(
     data_path: &PathBuf,
-    downloaded_models: Arc<Mutex<Vec<Model>>>,
+    downloaded_models: Arc<Mutex<HashMap<u32, Model>>>,
     mut receiver: mpsc::Receiver<DownloadRequest>,
 ) -> CommandResult<()> {
     info!("Starting download manager thread");
@@ -67,7 +68,10 @@ pub async fn download_manager(
                         .bearer_auth(dotenvy_macro::dotenv!("GH_ACCESS_TOKEN"))
                         .send()
                         .await
-                        .map_err(|_| anyhow!("Could not download model"))
+                        .map_err(|err| {
+                            let _unused = anyhow!("Could not download model");
+                            error!("{:?}", err);
+                })
                         .expect("msg");
                     let mut stream = res.bytes_stream();
                     let mut offset = 0;

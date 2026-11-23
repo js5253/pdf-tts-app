@@ -20,7 +20,8 @@ pub async fn get_downloaded_models(state: tauri::State<'_, AppState>) -> Command
             .await;
         models.to_owned()
     };
-    Ok(data)
+    let arr = data.values().map(|item| item.to_owned()).collect();
+    Ok(arr)
 }
 
 #[tauri::command]
@@ -30,7 +31,7 @@ pub async fn set_default_model(
     model_name: String,
     state: tauri::State<'_, AppState>,
 ) -> CommandResult<()> {
-    let _models = {
+    {
         state.settings.lock().await.voice = model_name;
     };
     Ok(())
