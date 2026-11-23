@@ -10,7 +10,7 @@ use std::{
 };
 use tauri::{ipc::Channel, Manager};
 use tauri_specta::{collect_commands, Builder};
-use tokio::sync::{Mutex, OnceCell, mpsc};
+use tokio::sync::{mpsc, Mutex, OnceCell};
 use tracing::{error, info};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 mod config;
@@ -32,9 +32,9 @@ use models::{
     DownloadManagerProgress,
 };
 use recents::{get_recent_docs, RecentDoc};
-use tts::{run_job, get_tts_progress};
+use tts::{get_tts_progress, run_job};
 
-use crate::model_manager::{ModelManager, stop_model_download};
+use crate::model_manager::{stop_model_download, ModelManager};
 use crate::tts_manager::TTSRequest;
 use crate::util::CommandError;
 use crate::{
@@ -127,19 +127,35 @@ pub fn run() {
             let recent_arc = Arc::new(recent_tts_mutex);
             let recent_handle = Arc::clone(&recent_arc);
             #[allow(clippy::unwrap_used)]
-            let model_arc = Arc::new(Mutex::new(ModelManager::preload_cached_downloaded(&app_dir).unwrap()));
+            let model_arc = Arc::new(Mutex::new(
+                ModelManager::preload_cached_downloaded(&app_dir).unwrap(),
+            ));
             let download_handle = Arc::clone(&model_arc);
             let model_mutex = Arc::clone(&model_arc);
             let downloaded_handle = Arc::clone(&model_arc);
             let dm_path = app_dir.clone();
             let tm_path = app_dir.clone();
             let _ = ERROR_CHANNEL.set(Channel::new(|_| Ok(())));
-            let ch: Channel<TtsGenerationProgress> = Channel::new(|_| Ok(()));
+            let tts_generation_ch: Channel<TtsGenerationProgress> = Channel::new(|_| Ok(()));
+            let download_update_ch = Channel::new(|_| Ok(()));
             tauri::async_runtime::spawn(async move {
-                download_manager::download_manager(&dm_path, download_handle, download_rx).await
+                download_manager::download_manager(
+                    &dm_path,
+                    download_handle,
+                    download_rx,
+                    download_update_ch,
+                )
+                .await
             });
             tauri::async_runtime::spawn(async move {
-                tts_manager::tts_manager(&tm_path, downloaded_handle, recent_arc, tts_rx, ch).await
+                tts_manager::tts_manager(
+                    &tm_path,
+                    downloaded_handle,
+                    recent_arc,
+                    tts_rx,
+                    tts_generation_ch,
+                )
+                .await
             });
             app.manage(AppState {
                 completed_onboarding: Mutex::new(false),
@@ -152,7 +168,7 @@ pub fn run() {
                 app_dir,
                 download_manager: download_tx,
                 tts_manager: tts_tx,
-                tts_progress: Arc::new(Mutex::new(Vec::new()))
+                tts_progress: Arc::new(Mutex::new(Vec::new())),
             });
             Ok(())
         })
@@ -174,10 +190,11 @@ pub fn run() {
             get_tts_progress
         ])
         .run(tauri::generate_context!())
-    .map_err(|err| {
-        error!("{}", err);
-        if let Some(ch) = ERROR_CHANNEL.get() {
-            let _ = ch.send(err.into());
-        }
-    }).expect("Error with app");
+        .map_err(|err| {
+            error!("{}", err);
+            if let Some(ch) = ERROR_CHANNEL.get() {
+                let _ = ch.send(err.into());
+            }
+        })
+        .expect("Error with app");
 }

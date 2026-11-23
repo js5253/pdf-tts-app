@@ -35,13 +35,12 @@ pub async fn load_cached_models(data_path: &PathBuf) -> CommandResult<HashMap<u3
 #[instrument(skip(state))]
 pub async fn stop_model_download(
     state: tauri::State<'_, AppState>,
-    model_name: String,
+    model_id: u32,
 ) -> CommandResult<()> {
     state
         .download_manager
         .send(DownloadRequest {
-            url: None,
-            name: Some(model_name),
+            id: model_id,
             r#type: DownloadRequestType::CancelDownload,
         })
         .await?;
@@ -85,7 +84,7 @@ pub struct Model {
     pub name: String,
     pub url: String,
     pub id: u32,
-    pub size: u32
+    pub size: usize
 }
 impl Model {
     pub fn get_config(&self, base_dir: &Path) -> CommandResult<TTSModelConfig> {
@@ -246,7 +245,7 @@ struct GithubAsset {
     #[serde(alias = "browser_download_url")]
     url: String,
     id: u32,
-    size: u32
+    size: usize
 }
 #[derive(Deserialize)]
 struct GithubModelResponse {
@@ -486,8 +485,7 @@ impl ModelManager {
     async fn download_model(model: Model, tx: &mpsc::Sender<DownloadRequest>) -> CommandResult<()> {
         // let model = model.lock().await;
         tx.send(DownloadRequest {
-            name: Some(model.name.clone()),
-            url: Some(model.url.clone()),
+            id: model.id,
             r#type: DownloadRequestType::Download,
         })
         .await?;

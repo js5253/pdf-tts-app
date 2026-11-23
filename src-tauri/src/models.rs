@@ -4,9 +4,10 @@ use tracing::instrument;
 use crate::{util::CommandResult, AppState, Model};
 #[derive(Deserialize, Serialize, specta::Type, Debug, Clone)]
 pub struct DownloadManagerProgress {
-    name: String,
-    progress: f32,
-    id: String,
+    pub name: String,
+    pub progress: usize,
+    pub id: u32,
+    pub r#type: String
 }
 
 #[tauri::command]

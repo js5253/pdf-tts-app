@@ -21,21 +21,24 @@ export const ModelDownloader = () => {
             <div class="w-full text-left">
                 <h2 class="text-xl">Download Progress</h2>
                 <ul class="w-full">
+                    {!downloadProgress() || downloadProgress()?.length == 0 && <>No Model Downloads Ongoing...</>}
                     <For each={downloadProgress()}>
-                        {item => <li class="bg-white-400 w-full">
+                        {item => (
+                            item.type = "inProgress" ? <li>
                             <span>{item.name}</span> - <ProgressBar progress={item.progress!} /> -
+                            <button onClick={() => onItemStop(item.name)}><IoStop /></button>
+                            </li> : <li>
+                            <span>{item.name}</span> - <span>Completed</span> -
                             <button onClick={() => onItemStop(item.name)}><IoStop /></button></li>
-                        }
-                        
+    )}
+                        {/* {item => <li class="bg-white-400 w-full">
+                        } */}
+
                     </For>
                     {/* {!downloadProgress() || downloadProgress()?.length == 0 && <>No Model Downloads Ongoing...</>}
                             {inProgressJobs()?.map(item => <TTSCard item={item} />)}
                         </ul>
-                        <h2 class="text-xl">Done</h2>
-                        <ul>
-                            {doneJobs()?.map(item => <TTSCard item={item} />)}
-                        </ul>
-                    </div> */}
+*/}
                 </ul>
                 <h2 class="text-xl">Done</h2>
 

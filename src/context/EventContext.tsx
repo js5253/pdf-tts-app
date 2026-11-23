@@ -18,6 +18,10 @@ const EventContextProvider = (props: ParentProps) => {
         toast.error("Error:" + err)
     }
 
+    onModelDownloadProgressUpdate.onmessage = (data) => {
+        toast("Progress: " + data.name + ", " + data.progress)
+    }
+
     return <EventContext.Provider value={
         {
             onHasCompletedOnboarding,
